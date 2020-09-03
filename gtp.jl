@@ -139,7 +139,7 @@ function whichparts(s1::NTuple{N,Int64},s2::NTuple{N,Int64},p1=GT_patterns(s1)) 
 end
 
 function creation(p1::GTPattern,l)
-    @assert l >=1 && l <=p1.N
+    @assert l >=1 && l <=p1.N-1
     result = Tuple{ComplexF64,typeof(p1)}[];
     for k = 1:l
         a = prod((p1[kp,l+1]-p1[k,l]+k-kp for kp in 1:l+1));
@@ -147,7 +147,7 @@ function creation(p1::GTPattern,l)
         c = prod((kp==k ? 1 : (p1[kp,l] - p1[k,l] + k - kp)*(p1[kp,l]-p1[k,l]+k-kp-1) for kp in 1:l))
 
         pref = sqrt((-1.0+0im)*a*b/c)
-        if pref != 0
+        if pref != 0 && c != 0
             td = copy(p1.data);
             td[k,l]+=1;
             push!(result,(pref,GTPattern(td)));
@@ -157,25 +157,24 @@ function creation(p1::GTPattern,l)
     return result
 end
 
-function _anihilation(p1::GTPattern,l)
-    @assert l >=1 && l <=p1.N
-    result = Tuple{Int64,ComplexF64,typeof(p1)}[];
+function anihilation(p1::GTPattern,l)
+    @assert l >=1 && l <=p1.N-1
+    result = Tuple{ComplexF64,typeof(p1)}[];
     for k = 1:l
         a = prod((p1[kp,l+1]-p1[k,l]+k-kp+1 for kp in 1:l+1));
         b = l>1 ? prod((p1[kp,l-1]-p1[k,l]+k-kp for kp in 1:l-1)) : 1;
         c = prod((kp==k ? 1 : (p1[kp,l] - p1[k,l] + k - kp + 1)*(p1[kp,l]-p1[k,l]+k-kp) for kp in 1:l))
 
         pref = sqrt((-1.0+0im)*a*b/c)
-        if pref != 0
+        if pref != 0 && c != 0
             td = copy(p1.data);
             td[k,l]-=1;
-            push!(result,(k,pref,GTPattern(td)));
+            push!(result,(pref,GTPattern(td)));
         end
     end
 
     return result
 end
-anihilation(p1::GTPattern,l) = map(x->(x[2],x[3]),_anihilation(p1,l));
 
 #in the case of multiple fusion, we should gaugefix C
 function gauge_fix(C)
@@ -194,7 +193,7 @@ function weightmaps(w3)
         push!(weight2child[w],i)
     end
 
-    weight2parent = Dict{eltype(w3),Vector{Int}}();
+    weight2parent = Dict{eltype(w3),Vector{Tuple{Int,Int}}}();
     for w in keys(weight2child)
         weight2parent[w] = Int[];
 
@@ -202,10 +201,12 @@ function weightmaps(w3)
             d = fill(0,length(w));
             d[l] = 1;
             d[l+1] = -1;
+
             if w+d in keys(weight2child)
-                append!(weight2parent[w],weight2child[w+d];)
+                append!(weight2parent[w],zip(weight2child[w+d],fill(l,length(weight2child[w+d]))))
             end
         end
+
     end
 
     return weight2child,weight2parent
@@ -237,8 +238,8 @@ function CGC(s1::NTuple{N,Int64},s2::NTuple{N,Int64},p1 = GT_patterns(s1),p2 = G
         @show hw
 
         prodmap(t) = prodmap(t...);
-        prodmap(i,j) = (i-1)*length(p1)+j
-        invprodmap(z) = (z÷length(p1)+1,mod1(z,length(p1)));
+        prodmap(i,j) = (i-1)*length(p2)+j
+        invprodmap(z) = (z÷length(p2)+1,mod1(z,length(p2)));
 
         T = Matrix{ComplexF64}(undef,length(p1)*length(p2),length(p1)*length(p2));
         used_dom = Vector{Tuple{Int64,Int64}}();
@@ -298,44 +299,40 @@ function CGC(s1::NTuple{N,Int64},s2::NTuple{N,Int64},p1 = GT_patterns(s1),p2 = G
         while !infloop
             infloop = true;
 
-            for (k,parents) in weight2parent
-                !reduce(&,known[parents]) && continue
+            for (k,parentbundle) in weight2parent
+                !reduce(&,map(x->known[x[1]],parentbundle)) && continue
 
                 println("-----")
                 println("know all parents to weight $k : ")
 
-                for cv in parents; @show p3[cv];end;
+                for cv in parentbundle; @show p3[cv[1]];end;
 
                 println("children:")
                 children = weight2child[k];
                 for cv in children; @show p3[cv]; end;
 
-                B = fill(0.0+0im,length(parents),length(children));
-                T = fill(0.0+0im,length(parents),size(solutions,2),length(p1),length(p2));
-                for (i,curpar) in enumerate(parents)
-                    for l in 1:N-1
-                        for (pref,ana) in anihilation(p3[curpar],l)
-                            derp = findfirst(x->isequal(p3[x],ana),children);
-                            @assert !isnothing(derp);
-                            B[i,derp] += pref;
-                        end
+                B = fill(0.0+0im,length(parentbundle),length(children));
+                T = fill(0.0+0im,length(parentbundle),size(solutions,2),length(p1),length(p2));
+                for (i,(curpar,l)) in enumerate(parentbundle)
+                    for (pref,ana) in anihilation(p3[curpar],l)
+                        derp = findfirst(x->isequal(p3[x],ana),children);
+                        @assert !isnothing(derp);
+                        B[i,derp] += pref;
                     end
 
                     for α = 1:size(T,2),ip1 = 1:size(T,3),ip2 = 1:size(T,4)
                         cur_CGC = CGC[curpar,α,ip1,ip2];
                         if cur_CGC!=0.0
-                            for l in 1:N-1
-                                for (pref,ana) in anihilation(p1[ip1],l)
-                                    derp = findfirst(x->isequal(ana,x),p1)
-                                    @assert !isnothing(derp);
-                                    T[i,α,derp,ip2] += pref*cur_CGC;
-                                end
+                            for (pref,ana) in anihilation(p1[ip1],l)
+                                derp = findfirst(x->isequal(ana,x),p1)
+                                @assert !isnothing(derp);
+                                T[i,α,derp,ip2] += pref*cur_CGC;
+                            end
 
-                                for (pref,ana) in anihilation(p2[ip2],l)
-                                    derp = findfirst(x->isequal(ana,x),p2)
-                                    @assert !isnothing(derp);
-                                    T[i,α,ip1,derp] += pref*cur_CGC;
-                                end
+                            for (pref,ana) in anihilation(p2[ip2],l)
+                                derp = findfirst(x->isequal(ana,x),p2)
+                                @assert !isnothing(derp);
+                                T[i,α,ip1,derp] += pref*cur_CGC;
                             end
                         end
                     end
