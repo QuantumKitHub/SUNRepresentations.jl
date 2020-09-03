@@ -241,7 +241,7 @@ function CGC(s1::NTuple{N,Int64},s2::NTuple{N,Int64},p1 = GT_patterns(s1),p2 = G
         prodmap(i,j) = (i-1)*length(p2)+j
         invprodmap(z) = (z÷length(p2)+1,mod1(z,length(p2)));
 
-        T = Matrix{ComplexF64}(undef,length(p1)*length(p2),length(p1)*length(p2));
+        T = fill(0.0+0im,length(p1)*length(p2),length(p1)*length(p2));
         used_dom = Vector{Tuple{Int64,Int64}}();
 
         #get the allowed basis
@@ -252,23 +252,24 @@ function CGC(s1::NTuple{N,Int64},s2::NTuple{N,Int64},p1 = GT_patterns(s1),p2 = G
         end
 
         #construct 'T'; we then solve C*T = 0
-        used_codom = Vector{Tuple{Int64,Int64}}();
+        used_codom = Vector{Tuple{Int64,Int64}}(); #this should be a set instead of calling unique on it at the end ...
         for (j,k) in used_dom
             for l in 1:N-1
                 for (pref,ap1) in creation(p1[j],l)
                     x = (findfirst(x->isequal(x,ap1),p1),k);
                     push!(used_codom,x)
-                    T[prodmap(x),prodmap(j,k)] = pref;
+                    T[prodmap(x),prodmap(j,k)] += pref;
                 end
                 for (pref,ap2) in creation(p2[k],l)
                     x = (j,findfirst(x->isequal(x,ap2),p2));
                     push!(used_codom,x)
-                    T[prodmap(x),prodmap(j,k)] = pref;
+                    T[prodmap(x),prodmap(j,k)] += pref;
                 end
             end
         end
-
-        solutions = gauge_fix(nullspace(T[prodmap.(used_codom),prodmap.(used_dom)]));
+        T_subslice = T[prodmap.(unique(used_codom)),prodmap.(used_dom)];
+        @show norm(T_subslice)
+        solutions = gauge_fix(nullspace(T_subslice));
 
         #println("is solutions unitary?")
         #@show solutions'*solutions
