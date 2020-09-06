@@ -1,56 +1,55 @@
 using LinearAlgebra,TensorOperations,TensorOperations,TensorKit
-#=
-Base.IteratorSize(::Type{SectorValues{SU2Irrep}}) = IsInfinite()
-Base.iterate(::SectorValues{SU2Irrep}, i = 0) = (SU2Irrep(half(i)), i+1)
-Base.getindex(::SectorValues{SU2Irrep}, i::Int) =
-    1 <= i ? SU2Irrep(half(i-1)) : throw(BoundsError(values(SU2Irrep), i))
-findindex(::SectorValues{SU2Irrep}, s::SU2Irrep) = twice(s.j)+1
 
-# SU2Irrep(j::Real) = convert(SU2Irrep, j)
-Base.convert(::Type{SU2Irrep}, j::Real) = SU2Irrep(j)
-
-Base.@pure FusionStyle(::Type{SU2Irrep}) = SimpleNonAbelian()
-Base.isreal(::Type{SU2Irrep}) = true
-
-Nsymbol(sa::SU2Irrep, sb::SU2Irrep, sc::SU2Irrep) = WignerSymbols.δ(sa.j, sb.j, sc.j)
-function Fsymbol(s1::SU2Irrep, s2::SU2Irrep, s3::SU2Irrep,
-                    s4::SU2Irrep, s5::SU2Irrep, s6::SU2Irrep)
-    if all(==(_su2one), (s1, s2, s3, s4, s5, s6))
-        return 1.0
-    else
-        return sqrt(dim(s5) * dim(s6)) * WignerSymbols.racahW(Float64, s1.j, s2.j,
-                                                                s4.j, s3.j, s5.j, s6.j)
-    end
-end
-function Rsymbol(sa::SU2Irrep, sb::SU2Irrep, sc::SU2Irrep)
-    Nsymbol(sa, sb, sc) || return 0.
-    iseven(convert(Int, sa.j+sb.j-sc.j)) ? 1.0 : -1.0
-end
-
-function fusiontensor(a::SU2Irrep, b::SU2Irrep, c::SU2Irrep, v::Nothing = nothing)
-    C = Array{Float64}(undef, dim(a), dim(b), dim(c))
-    ja, jb, jc = a.j, b.j, c.j
-
-    for kc = 1:dim(c), kb = 1:dim(b), ka = 1:dim(a)
-        C[ka,kb,kc] = WignerSymbols.clebschgordan(ja, ja+1-ka, jb, jb+1-kb, jc, jc+1-kc)
-    end
-    return C
-end
-
-Base.hash(s::SU2Irrep, h::UInt) = hash(s.j, h)
-Base.isless(s1::SU2Irrep, s2::SU2Irrep) = isless(s1.j, s2.j)
-
-=#
-struct SUNIrrep{N}
+struct SUNIrrep{N}<:Sector
     s::NTuple{N,Int64}
 end
 
+
+function Base.isless(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
+    n_s1 = normalize(s1);
+    n_s2 = normalize(s2);
+
+    for n in 1:N
+        n_s1.s[n]>n_s2.s[n] && return false
+    end
+    return true
+end
+
+Base.IteratorSize(::Type{TensorKit.SectorValues{<:SUNIrrep}}) = IsInfinite()
+
+Base.hash(s::SUNIrrep,h::UInt) = hash(s.s,h);
 TensorKit.dim(s::SUNIrrep{N}) where N= prod((prod(((s.s[k1]-s.s[k2])/(k1-k2) for k1 = 1:k2-1)) for k2 = 2:N))
 TensorKit.normalize(s::SUNIrrep) = SUNIrrep(s.s.-s.s[end]);
+
 Base.conj(s::SUNIrrep) = s;
 Base.one(s::SUNIrrep{N}) where N = SUNIrrep(ntuple(x->0,N));
 
-function TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
+
+Base.@pure FusionStyle(::Type{<:SUNIrrep}) = DegenerateNonAbelian()
+Base.isreal(::Type{<:SUNIrrep}) = false #not sure - but complex is anyway more general
+TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic();
+
+
+TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N = unique(_otimes(s1,s2))
+TensorKit.Nsymbol(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N = count(x->x==s3,_otimes(s1,s2));
+
+function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
+    A = CGC(a,b,e)
+    B = CGC(e,c,d)
+    C = CGC(b,c,f)
+    D = CGC(a,f,d)
+
+    @tensor conj(A[1,2,3])*conj(B[3,4,-2])*C[2,4,5]*D[1,5,-1]
+end
+
+function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
+    @tensor CGC(b,a,c)[1,2,-2]*conj(CGC(a,b,c)[2,1,-1])
+end
+
+#this is not the correct \otimes, it repeats in case of multiplicities
+function _otimes(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
+    dim(s1)>dim(s2) && return _otimes(s2,s1);
+
     result = SUNIrrep{N}[];
 
     for pat in GTpatterns(s1)
@@ -79,6 +78,7 @@ function TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
         end
     end
 
-    normalize.(result);
+    sort(normalize.(result));
 end
+
 include("gtp.jl")

@@ -273,7 +273,7 @@ function lower_weight_CGC!(CGC,p1,p2,p3)
                 CGC[c,:,:,:] = solutions[i,:,:,:]
             end
 
-            infloop = false; # ironically, in my testing this introduced an infinite loop
+            infloop = false;
             known[children].=true;
             delete!(weight2parent,k);
             break;
@@ -281,28 +281,8 @@ function lower_weight_CGC!(CGC,p1,p2,p3)
     end
 end
 #actually calculating the CGC's
-function CGC(s1::SUNIrrep{N},s2::SUNIrrep{N},p1 = GTpatterns(s1),p2 = GTpatterns(s2)) where N
-
-    # step 1 : determine to which sectors s1 and s2 can fuse
-    if length(p1) > length(p2)
-        s3 = s2⊗s1
-    else
-        s3 = s1⊗s2
-    end
-
-    #of course, there is multiple fusion. We would like to know the outer multiplicity for every occuring irrep
-    cp = countpartition(s3);
-    canfuse = collect(keys(cp))
-    map(canfuse) do irrep
-        p3 = GTpatterns(irrep);
-
-        # step 2 : determine the CGC of the largest weight GT pattern
-        CGC = heighest_weight_CGC(p1,p2,p3);
-        @assert size(CGC,2)>=cp[irrep]
-
-        # step 3 : determine all other CGC's using ladder operators
-        lower_weight_CGC!(CGC,p1,p2,p3)
-        CGC
-    end
-
+function CGC(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N},p1 = GTpatterns(s1),p2 = GTpatterns(s2),p3 = GTpatterns(s3);) where N
+    CGC = heighest_weight_CGC(p1,p2,p3);
+    lower_weight_CGC!(CGC,p1,p2,p3)
+    CGC
 end
