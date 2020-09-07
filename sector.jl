@@ -1,4 +1,4 @@
-using LinearAlgebra,TensorOperations,TensorOperations,TensorKit,RowEchelon
+using RowEchelon
 
 #=
 GTP = gelfand-Tsetlin pattern
@@ -40,7 +40,7 @@ Base.hash(s::SUNIrrep,h::UInt) = hash(s.s,h);
 TensorKit.dim(s::SUNIrrep{N}) where N= Int(prod((prod((1+(s.s[k1]-s.s[k2])/(k2-k1) for k1 = 1:k2-1)) for k2 = 2:N)))
 TensorKit.normalize(s::SUNIrrep) = SUNIrrep(s.s.-s.s[end]);
 
-Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.s).-s.s[1]).*-1)
+Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.s).-s.s[1]).*-1) #maybe? https://aip.scitation.org/doi/pdf/10.1063/1.1704095
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(x->0,N));
 
 
@@ -53,16 +53,24 @@ TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N = unique(_otimes(s1,s2))
 TensorKit.Nsymbol(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N = count(x->x==s3,_otimes(s1,s2));
 
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
-    A = CGC(a,b,e)
-    B = CGC(e,c,d)
-    C = CGC(b,c,f)
-    D = CGC(a,f,d)
+    @assert N==2 #only testing SU2 until multiple fusion works
+    (Nsymbol(a,b,e)==0 || Nsymbol(e,c,d)==0 || Nsymbol(b,c,f)==0 || Nsymbol(a,f,d) == 0) && return 0.0
+    A = CGC(a,b,e)[:,1,:,:]
+    B = CGC(e,c,d)[:,1,:,:]
+    C = CGC(b,c,f)[:,1,:,:]
+    D = CGC(a,f,d)[:,1,:,:]
 
-    @tensor conj(A[1,2,3])*conj(B[3,4,-2])*C[2,4,5]*D[1,5,-1]
+    F = @tensor conj(A[3,1,2])*conj(B[6,3,4])*C[5,2,4]*D[6,1,5]
+    F/dim(d)
 end
 
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
-    @tensor CGC(b,a,c)[1,2,-2]*conj(CGC(a,b,c)[2,1,-1])
+    @assert N==2 #only testing SU2 until multiple fusion works
+    Nsymbol(a,b,c)==0 && return 0.0
+    A = CGC(b,a,c)[:,1,:,:]
+    B = CGC(a,b,c)[:,1,:,:]
+    R = @tensor A[3,1,2]*conj(B[3,2,1])
+    R/dim(c)
 end
 
 #this is not the correct \otimes, it repeats in case of multiplicities

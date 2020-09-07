@@ -1,6 +1,6 @@
 function qrpos(C)
-    (q,r) = qr(C);
-    D = diagm(sign.(diag(r)));
+    (q,r) = LinearAlgebra.qr(C);
+    D = LinearAlgebra.diagm(sign.(LinearAlgebra.diag(r)));
     (q*D,D*r)
 end
 #in the case of multiple fusion, we should gaugefix C
@@ -80,7 +80,7 @@ function heighest_weight_CGC(p1,p2,p3)
     end
     T_subslice = T[prodmap.(unique(used_codom)),prodmap.(used_dom)];
 
-    solutions = gauge_fix(nullspace(T_subslice));
+    solutions = gauge_fix(LinearAlgebra.nullspace(T_subslice));
 
     CGC = fill(0.0+0im,length(p3),size(solutions,2),length(p1),length(p2));
     for α in 1:size(solutions,2)
