@@ -1,6 +1,22 @@
 using LinearAlgebra,TensorOperations,TensorOperations,TensorKit,RowEchelon
 
-struct SUNIrrep{N}<:Sector
+#=
+GTP = gelfand-Tsetlin pattern
+
+sectors.jl contains the sector definition
+gtp.jl contains gtp bells and whistles
+cgc.jl uses gtp/sectors to calculate clebschgordans
+
+things to change
+    - data container in GTPattern
+    - some names
+    - if I implement the indexing from the paper, the CGC routine will be so much nicer (no more findindex)
+    - use sparse tensors for the CGCs
+
+However, runtime should be in the matrix inversion / nullspace subroutines anyway
+=#
+
+struct SUNIrrep{N}<:Irrep{SU{N}}
     s::NTuple{N,Int64}
 end
 
@@ -28,8 +44,8 @@ Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.s).-s.s[1]).*-1)
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(x->0,N));
 
 
-#=Base.@pure =#TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = DegenerateNonAbelian()
-Base.isreal(::Type{SUNIrrep{N}}) where N = false #not sure - but complex is anyway more general
+Base.@pure TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = SimpleNonAbelian()
+Base.isreal(::Type{SUNIrrep{N}}) where N = true
 TensorKit.BraidingStyle(::Type{SUNIrrep{N}}) where N = Bosonic();
 
 
@@ -85,3 +101,4 @@ function _otimes(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
 end
 
 include("gtp.jl")
+include("cgc.jl")
