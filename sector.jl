@@ -1,4 +1,4 @@
-using LinearAlgebra,TensorOperations,TensorOperations,TensorKit
+using LinearAlgebra,TensorOperations,TensorOperations,TensorKit,RowEchelon
 
 struct SUNIrrep{N}<:Sector
     s::NTuple{N,Int64}
@@ -21,10 +21,10 @@ Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where T<:SUNIrrep = Base.Is
 
 Base.isequal(s::SUNIrrep{N},t::SUNIrrep{N}) where N = isequal(s.s,t.s);
 Base.hash(s::SUNIrrep,h::UInt) = hash(s.s,h);
-TensorKit.dim(s::SUNIrrep{N}) where N= prod((prod(((s.s[k1]-s.s[k2])/(k1-k2) for k1 = 1:k2-1)) for k2 = 2:N))
+TensorKit.dim(s::SUNIrrep{N}) where N= Int(prod((prod((1+(s.s[k1]-s.s[k2])/(k2-k1) for k1 = 1:k2-1)) for k2 = 2:N)))
 TensorKit.normalize(s::SUNIrrep) = SUNIrrep(s.s.-s.s[end]);
 
-Base.conj(s::SUNIrrep) = s;
+#Base.conj(s::SUNIrrep) = s; #this is wrong
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(x->0,N));
 
 

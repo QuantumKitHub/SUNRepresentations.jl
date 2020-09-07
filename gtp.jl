@@ -122,10 +122,20 @@ function anihilation(p1::GTPattern,l)
     return result
 end
 
+function qrpos(C)
+    (q,r) = qr(C);
+    D = diagm(sign.(diag(r)));
+    (q*D,D*r)
+end
 #in the case of multiple fusion, we should gaugefix C
 function gauge_fix(C)
-    @warn "gauge fixing is not implemented yet"
-    C
+    C = permutedims(C);
+    rref!(C)
+    C = permutedims(C);
+
+    (nC,_) = qrpos(C);
+
+    nC
 end
 
 # maps a given weight to the (index of) the patterns with that weight
@@ -270,7 +280,7 @@ function lower_weight_CGC!(CGC,p1,p2,p3)
     end
 end
 #actually calculating the CGC's
-function CGC(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N},p1 = GTpatterns(s1),p2 = GTpatterns(s2),p3 = GTpatterns(s3);) where N
+function CGC(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N},p1 = GTpatterns(s1),p2 = GTpatterns(s2),p3 = GTpatterns(s3)) where N
     CGC = heighest_weight_CGC(p1,p2,p3);
     lower_weight_CGC!(CGC,p1,p2,p3)
     CGC
