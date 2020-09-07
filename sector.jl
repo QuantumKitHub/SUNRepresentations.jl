@@ -9,25 +9,28 @@ function Base.isless(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
     n_s1 = normalize(s1);
     n_s2 = normalize(s2);
 
+    iseq = true;
     for n in 1:N
         n_s1.s[n]>n_s2.s[n] && return false
+        iseq = iseq && (n_s1.s[n]==n_s2.s[n])
     end
-    return true
+    return !iseq
 end
 
-Base.IteratorSize(::Type{TensorKit.SectorValues{<:SUNIrrep}}) = IsInfinite()
+Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where T<:SUNIrrep = Base.IsInfinite()
 
+Base.isequal(s::SUNIrrep{N},t::SUNIrrep{N}) where N = isequal(s.s,t.s);
 Base.hash(s::SUNIrrep,h::UInt) = hash(s.s,h);
 TensorKit.dim(s::SUNIrrep{N}) where N= prod((prod(((s.s[k1]-s.s[k2])/(k1-k2) for k1 = 1:k2-1)) for k2 = 2:N))
 TensorKit.normalize(s::SUNIrrep) = SUNIrrep(s.s.-s.s[end]);
 
 Base.conj(s::SUNIrrep) = s;
-Base.one(s::SUNIrrep{N}) where N = SUNIrrep(ntuple(x->0,N));
+Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(x->0,N));
 
 
-Base.@pure FusionStyle(::Type{<:SUNIrrep}) = DegenerateNonAbelian()
-Base.isreal(::Type{<:SUNIrrep}) = false #not sure - but complex is anyway more general
-TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic();
+#=Base.@pure =#TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = DegenerateNonAbelian()
+Base.isreal(::Type{SUNIrrep{N}}) where N = false #not sure - but complex is anyway more general
+TensorKit.BraidingStyle(::Type{SUNIrrep{N}}) where N = Bosonic();
 
 
 TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N = unique(_otimes(s1,s2))

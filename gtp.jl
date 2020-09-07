@@ -84,15 +84,6 @@ function highest_weight_GT(irr::SUNIrrep{N}) where N
     GTPattern(data)
 end
 
-#this has to be a base function somewhere
-function countpartition(set)
-    toret = Dict{eltype(set),Int}();
-    for s in set
-        toret[s] = get(toret,s,0)+1
-    end
-    return toret
-end
-
 function creation(p1::GTPattern,l)
     @assert l >=1 && l <=p1.N-1
     result = Tuple{ComplexF64,typeof(p1)}[];
@@ -184,9 +175,7 @@ function heighest_weight_CGC(p1,p2,p3)
 
     #get the allowed basis
     for (i,p1) in enumerate(p1),(j,p2) in enumerate(p2)
-        if Wz(p1)+Wz(p2) == whw
-            push!(used_dom,(i,j))
-        end
+        Wz(p1)+Wz(p2) == whw && push!(used_dom,(i,j))
     end
 
     for (j,k) in used_dom
