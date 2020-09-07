@@ -5,6 +5,8 @@ things to change
     - data container in GTPattern
     - some names
     - if I implement the indexing from the paper, the CGC routine will be so much nicer (no more findindex)
+    - maybe split of cgc logic to another file
+    - use sparse tensors for the CGCs
 
 However, runtime should be in the matrix inversion / nullspace subroutines anyway
 =#

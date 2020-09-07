@@ -24,7 +24,7 @@ Base.hash(s::SUNIrrep,h::UInt) = hash(s.s,h);
 TensorKit.dim(s::SUNIrrep{N}) where N= Int(prod((prod((1+(s.s[k1]-s.s[k2])/(k2-k1) for k1 = 1:k2-1)) for k2 = 2:N)))
 TensorKit.normalize(s::SUNIrrep) = SUNIrrep(s.s.-s.s[end]);
 
-#Base.conj(s::SUNIrrep) = s; #this is wrong
+Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.s).-s.s[1]).*-1)
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(x->0,N));
 
 
