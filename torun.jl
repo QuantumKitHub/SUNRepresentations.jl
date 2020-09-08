@@ -1,3 +1,8 @@
+using TensorKit,TensorOperations; import LinearAlgebra; include("sector.jl")
+matlab2gt(m,n) = SUNIrrep((m+n,n,0))
+A = CGC(matlab2gt(2,2),matlab2gt(2,2),matlab2gt(2,2));
+
+#=
 using TensorKit,TensorOperations
 import LinearAlgebra
 
@@ -26,7 +31,6 @@ isunitary = norm(reshape(test,D,D)-Matrix(LinearAlgebra.I,D,D))
 println("unitary up to $(isunitary)")
 
 
-#=
 # this works - but only on a local copy
 using TensorKit,MPSKit
 

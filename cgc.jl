@@ -1,17 +1,17 @@
 function qrpos(C)
     (q,r) = LinearAlgebra.qr(C);
-    D = LinearAlgebra.diagm(sign.(LinearAlgebra.diag(r)));
+    D = LinearAlgebra.diagm(sign.(LinearAlgebra.diag(q)));
     (q*D,D*r)
+end
+function lqpos(C)
+    (l,q) = LinearAlgebra.lq(C);
+    D = LinearAlgebra.diagm(sign.(LinearAlgebra.diag(q)));
+    (l*D,D*q)
 end
 #in the case of multiple fusion, we should gaugefix C
 function gauge_fix(C)
-    C = permutedims(C);
-    rref!(C)
-    C = permutedims(C);
-
-    (nC,_) = qrpos(C);
-
-    nC
+    (q,_) = qrpos(rref(permutedims(C)));
+    C*conj.(q)
 end
 
 # maps a given weight to the (index of) the patterns with that weight
@@ -50,7 +50,6 @@ end
 function heighest_weight_CGC(p1,p2,p3)
     prodmap(t) = prodmap(t...);
     prodmap(i,j) = (i-1)*length(p2)+j
-    invprodmap(z) = (z÷length(p2)+1,mod1(z,length(p2)));
 
     whw = Wz(p3[end]);
     N = p3[end].N
