@@ -60,7 +60,7 @@ function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SU
     D = CGC(a,f,d)
 
     @tensor F[-1 -2 -3 -4] := conj(A[3,-1,1,2])*conj(B[6,-2,3,4])*C[5,-3,2,4]*D[6,-4,1,5]
-    F/dim(d)
+    F = F/dim(d)
 end
 
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
