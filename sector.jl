@@ -44,7 +44,7 @@ Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.s).-s.s[1]).*-1) #maybe? https://ai
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(x->0,N));
 
 
-Base.@pure TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = SimpleNonAbelian()
+Base.@pure TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = DegenerateNonAbelian()
 Base.isreal(::Type{SUNIrrep{N}}) where N = true
 TensorKit.BraidingStyle(::Type{SUNIrrep{N}}) where N = Bosonic();
 
@@ -53,24 +53,22 @@ TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N = unique(_otimes(s1,s2))
 TensorKit.Nsymbol(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N = count(x->x==s3,_otimes(s1,s2));
 
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
-    @assert N==2 #only testing SU2 until multiple fusion works
     (Nsymbol(a,b,e)==0 || Nsymbol(e,c,d)==0 || Nsymbol(b,c,f)==0 || Nsymbol(a,f,d) == 0) && return 0.0
-    A = CGC(a,b,e)[:,1,:,:]
-    B = CGC(e,c,d)[:,1,:,:]
-    C = CGC(b,c,f)[:,1,:,:]
-    D = CGC(a,f,d)[:,1,:,:]
+    A = CGC(a,b,e)
+    B = CGC(e,c,d)
+    C = CGC(b,c,f)
+    D = CGC(a,f,d)
 
-    F = @tensor conj(A[3,1,2])*conj(B[6,3,4])*C[5,2,4]*D[6,1,5]
+    @tensor F[-1 -2 -3 -4] := conj(A[3,-1,1,2])*conj(B[6,-2,3,4])*C[5,-3,2,4]*D[6,-4,1,5]
     F/dim(d)
 end
 
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
-    @assert N==2 #only testing SU2 until multiple fusion works
     Nsymbol(a,b,c)==0 && return 0.0
-    A = CGC(b,a,c)[:,1,:,:]
-    B = CGC(a,b,c)[:,1,:,:]
-    R = @tensor A[3,1,2]*conj(B[3,2,1])
-    R/dim(c)
+    A = CGC(b,a,c)
+    B = CGC(a,b,c)
+    R = @tensor A[3,4,1,2]*conj(B[3,4,2,1])
+    R/(size(B,1)*size(B,2))
 end
 
 #this is not the correct \otimes, it repeats in case of multiplicities
@@ -106,6 +104,10 @@ function _otimes(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
     end
 
     sort(normalize.(result));
+end
+
+function TensorKit.fusiontensor(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N
+    return permutedims(CGC(s1,s2,s3),(3,4,1,2));
 end
 
 include("gtp.jl")
