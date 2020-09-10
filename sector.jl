@@ -71,26 +71,29 @@ TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N = unique(_otimes(s1,s2))
 TensorKit.Nsymbol(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N = count(x->x==s3,_otimes(s1,s2));
 
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
-    (Nsymbol(a,b,e)==0 || Nsymbol(e,c,d)==0 || Nsymbol(b,c,f)==0 || Nsymbol(a,f,d) == 0) && return 0.0
+    (Nsymbol(a,b,e)==0 || Nsymbol(e,c,d)==0 || Nsymbol(b,c,f)==0 || Nsymbol(a,f,d) == 0) && return fill(0.0,1,1,1,1)
     A = CGC(a,b,e)
     B = CGC(e,c,d)
     C = CGC(b,c,f)
     D = CGC(a,f,d)
 
     @tensor F[-1 -2 -3 -4] := conj(A[3,-1,1,2])*conj(B[6,-2,3,4])*C[5,-3,2,4]*D[6,-4,1,5]
-    F = F/dim(d)
+    F::Array{Float64,4}/dim(d)
 end
 
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
-    Nsymbol(a,b,c)==0 && return 0.0
-    A = CGC(b,a,c)
-    B = CGC(a,b,c)
+    Nsymbol(a,b,c)==0 && return fill(0.0,1,1)
+    A = CGC(a,b,c)
+    B = CGC(b,a,c)
+
     #=
-    @tensor R[-1;-2] := A[3,-2,1,2]*conj(B[3,-1,2,1])
-    R/(size(B,1)*size(B,2))
-    =#
     R = @tensor A[3,4,1,2]*conj(B[3,4,2,1])
     R/(size(B,1)*size(B,2))
+    =#
+
+    @tensor R[-1;-2] := A[3,-2,1,2]*conj(B[3,-1,2,1])
+    R::Matrix{Float64}/(size(B,1)*size(B,2))
+
 end
 
 #this is not the correct \otimes, it repeats in case of multiplicities
