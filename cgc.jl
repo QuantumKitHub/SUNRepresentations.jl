@@ -54,7 +54,7 @@ function heighest_weight_CGC(p1,p2,p3)
     whw = Wz(p3[end]);
     N = p3[end].N
 
-    T = fill(0.0+0im,length(p1)*length(p2),length(p1)*length(p2));
+    T = fill(0.0,length(p1)*length(p2),length(p1)*length(p2));
     used_dom = Vector{Tuple{Int64,Int64}}();
     used_codom = Vector{Tuple{Int64,Int64}}(); #this should be a set instead of calling unique on it at the end ...
 
@@ -81,7 +81,7 @@ function heighest_weight_CGC(p1,p2,p3)
 
     solutions = gauge_fix(LinearAlgebra.nullspace(T_subslice));
 
-    CGC = fill(0.0+0im,length(p3),size(solutions,2),length(p1),length(p2));
+    CGC = fill(0.0,length(p3),size(solutions,2),length(p1),length(p2));
     for α in 1:size(solutions,2)
         for (i,(j,k)) in enumerate(used_dom)
             CGC[end,α,j,k] = solutions[i,α]
@@ -115,8 +115,8 @@ function lower_weight_CGC!(CGC,p1,p2,p3)
 
             children = weight2child[k];
 
-            B = fill(0.0+0im,length(parentbundle),length(children));
-            T = fill(0.0+0im,length(parentbundle),size(CGC,2),length(p1),length(p2));
+            B = fill(0.0,length(parentbundle),length(children));
+            T = fill(0.0,length(parentbundle),size(CGC,2),length(p1),length(p2));
             for (i,(curpar,l)) in enumerate(parentbundle)
                 for (pref,ana) in anihilation(p3[curpar],l)
                     derp = findfirst(x->isequal(p3[x],ana),children);

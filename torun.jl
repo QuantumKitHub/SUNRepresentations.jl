@@ -21,7 +21,6 @@ st2 = InfiniteMPS([ℂ[SU₂](1=>1)],[ℂ[SU₂](1//2=>4,3//2=>4,5//2=>4)]);
 (gs2,_) = find_groundstate(st2,ham2,Vumps());
 @show expectation_value(gs2,ham2);
 =#
-
 a = TensorMap(rand,ComplexF64,RepresentationSpace((matlab2gt(1,1) => 3))*RepresentationSpace((matlab2gt(1,1) => 3))*RepresentationSpace((matlab2gt(0,1) => 3)),RepresentationSpace((matlab2gt(1,1) => 3))*RepresentationSpace((matlab2gt(2,0) => 3)))
 @show norm(a);
 a = permute(a,(3,2,5),(1,4));

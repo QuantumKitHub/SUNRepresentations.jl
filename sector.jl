@@ -35,9 +35,27 @@ end
 
 Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where T<:SUNIrrep = Base.IsInfinite()
 
+
+function Base.iterate(::TensorKit.SectorValues{T}, i = ntuple(x->0,Val{N}()))  where T<:SUNIrrep{N} where N
+    ii = 1;
+    for j = 2:N-1
+        ii = i[j-1]>=i[j]+1>=i[j+1] ? j : ii
+    end
+    ni = i.+ntuple(x->x==ii ? 1 : 0,Val{N}());
+    (SUNIrrep(i),ni)
+end
+
 Base.isequal(s::SUNIrrep{N},t::SUNIrrep{N}) where N = isequal(s.s,t.s);
 Base.hash(s::SUNIrrep,h::UInt) = hash(s.s,h);
-TensorKit.dim(s::SUNIrrep{N}) where N= Int(prod((prod((1+(s.s[k1]-s.s[k2])/(k2-k1) for k1 = 1:k2-1)) for k2 = 2:N)))
+function TensorKit.dim(s::SUNIrrep{N}) where N
+    #Int(prod((prod((1+(s.s[k1]-s.s[k2])//(k2-k1) for k1 = 1:k2-1)) for k2 = 2:N))) # original which doesn't infer correctly
+    toret::Rational{Int64} = 1//1;
+    for k2 = 2:N,k1 = 1:k2-1
+        toret*=(k2-k1+s.s[k1]-s.s[k2])//(k2-k1)
+    end
+    @assert denominator(toret) == 1;
+    return numerator(toret)
+end
 TensorKit.normalize(s::SUNIrrep) = SUNIrrep(s.s.-s.s[end]);
 
 Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.s).-s.s[1]).*-1) #maybe? https://aip.scitation.org/doi/pdf/10.1063/1.1704095
@@ -67,6 +85,10 @@ function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where
     Nsymbol(a,b,c)==0 && return 0.0
     A = CGC(b,a,c)
     B = CGC(a,b,c)
+    #=
+    @tensor R[-1;-2] := A[3,-2,1,2]*conj(B[3,-1,2,1])
+    R/(size(B,1)*size(B,2))
+    =#
     R = @tensor A[3,4,1,2]*conj(B[3,4,2,1])
     R/(size(B,1)*size(B,2))
 end

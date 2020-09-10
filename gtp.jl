@@ -71,13 +71,13 @@ end
 
 function creation(p1::GTPattern,l)
     @assert l >=1 && l <=p1.N-1
-    result = Tuple{ComplexF64,typeof(p1)}[];
+    result = Tuple{Float64,typeof(p1)}[];
     for k = 1:l
         a = prod((p1[kp,l+1]-p1[k,l]+k-kp for kp in 1:l+1));
         b = l>1 ? prod((p1[kp,l-1]-p1[k,l]+k-kp-1 for kp in 1:l-1)) : 1;
         c = prod((kp==k ? 1 : (p1[kp,l] - p1[k,l] + k - kp)*(p1[kp,l]-p1[k,l]+k-kp-1) for kp in 1:l))
 
-        pref = sqrt((-1.0+0im)*a*b/c)
+        pref = sqrt((-1.0)*a*b/c)
         if pref != 0 && c != 0
             td = copy(p1.data);
             td[k,l]+=1;
@@ -90,13 +90,13 @@ end
 
 function anihilation(p1::GTPattern,l)
     @assert l >=1 && l <=p1.N-1
-    result = Tuple{ComplexF64,typeof(p1)}[];
+    result = Tuple{Float64,typeof(p1)}[];
     for k = 1:l
         a = prod((p1[kp,l+1]-p1[k,l]+k-kp+1 for kp in 1:l+1));
         b = l>1 ? prod((p1[kp,l-1]-p1[k,l]+k-kp for kp in 1:l-1)) : 1;
         c = prod((kp==k ? 1 : (p1[kp,l] - p1[k,l] + k - kp + 1)*(p1[kp,l]-p1[k,l]+k-kp) for kp in 1:l))
 
-        pref = sqrt((-1.0+0im)*a*b/c)
+        pref = sqrt((-1.0)*a*b/c)
         if pref != 0 && c != 0
             td = copy(p1.data);
             td[k,l]-=1;
