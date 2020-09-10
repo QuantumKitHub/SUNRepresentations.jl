@@ -71,29 +71,34 @@ TensorKit.:⊗(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N = unique(_otimes(s1,s2))
 TensorKit.Nsymbol(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N = count(x->x==s3,_otimes(s1,s2));
 
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
-    (Nsymbol(a,b,e)==0 || Nsymbol(e,c,d)==0 || Nsymbol(b,c,f)==0 || Nsymbol(a,f,d) == 0) && return fill(0.0,1,1,1,1)
+    N1 = Nsymbol(a,b,e)
+    N2 = Nsymbol(e,c,d)
+    N3 = Nsymbol(b,c,f)
+    N4 = Nsymbol(a,f,d)
+
+    (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) &&
+        return fill(0.0,N1,N2,N3,N4)
     A = CGC(a,b,e)
     B = CGC(e,c,d)
     C = CGC(b,c,f)
     D = CGC(a,f,d)
 
     @tensor F[-1 -2 -3 -4] := conj(A[3,-1,1,2])*conj(B[6,-2,3,4])*C[5,-3,2,4]*D[6,-4,1,5]
-    F::Array{Float64,4}/dim(d)
+    F = F::Array{Float64,4}/dim(d)
+    F[1:N1,1:N2,1:N3,1:N4]
 end
 
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
-    Nsymbol(a,b,c)==0 && return fill(0.0,1,1)
+    N1 = Nsymbol(a,b,c);
+    N2 = Nsymbol(b,a,c);
+
+    (N1 == 0 || N2 == 0) && return fill(0.0,N1,N2);
     A = CGC(a,b,c)
     B = CGC(b,a,c)
 
-    #=
-    R = @tensor A[3,4,1,2]*conj(B[3,4,2,1])
-    R/(size(B,1)*size(B,2))
-    =#
-
-    @tensor R[-1;-2] := A[3,-2,1,2]*conj(B[3,-1,2,1])
-    R::Matrix{Float64}/(size(B,1)*size(B,2))
-
+    @tensor R[-1;-2] := A[3,-1,1,2]*conj(B[3,-2,2,1])
+    R = R::Matrix{Float64}/dim(c)
+    R[1:N1,1:N2]
 end
 
 #this is not the correct \otimes, it repeats in case of multiplicities
@@ -132,7 +137,7 @@ function _otimes(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
 end
 
 function TensorKit.fusiontensor(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N
-    return permutedims(CGC(s1,s2,s3),(3,4,1,2));
+    ft = permutedims(CGC(s1,s2,s3),(3,4,1,2))[:,:,:,1:Nsymbol(s1,s2,s3)];
 end
 
 include("gtp.jl")
