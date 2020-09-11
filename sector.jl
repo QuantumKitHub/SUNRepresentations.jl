@@ -19,7 +19,7 @@ However, runtime should be in the matrix inversion / nullspace subroutines anywa
 struct SUNIrrep{N}<:Irrep{SU{N}}
     s::NTuple{N,Int64}
 end
-
+SUNIrrep{N}(i::Vararg{Int64,N}) where N= SUNIrrep(i);
 
 function Base.isless(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
     n_s1 = normalize(s1);
@@ -77,7 +77,7 @@ function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SU
     N4 = Nsymbol(a,f,d)
 
     (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) &&
-        return fill(0.0,N1,N2,N3,N4)
+        return fill(0.0,max(1,N1),max(1,N2),max(1,N3),max(1,N4))
     A = CGC(a,b,e)
     B = CGC(e,c,d)
     C = CGC(b,c,f)
@@ -92,7 +92,7 @@ function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where
     N1 = Nsymbol(a,b,c);
     N2 = Nsymbol(b,a,c);
 
-    (N1 == 0 || N2 == 0) && return fill(0.0,N1,N2);
+    (N1 == 0 || N2 == 0) && return fill(0.0,max(1,N1),max(1,N2));
     A = CGC(a,b,c)
     B = CGC(b,a,c)
 
