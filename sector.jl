@@ -79,8 +79,7 @@ function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}, d::SU
     D = CGC(a,f,d)
 
     @tensor F[-1 -2 -3 -4] := conj(A[3,-1,1,2])*conj(B[6,-2,3,4])*C[5,-3,2,4]*D[6,-4,1,5]
-    F = F::Array{Float64,4}/dim(d)
-    F[1:N1,1:N2,1:N3,1:N4]
+    Array(F)[1:N1,1:N2,1:N3,1:N4]::Array{Float64,4}/dim(d)
 end
 
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
@@ -92,8 +91,7 @@ function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where
     B = CGC(b,a,c)
 
     @tensor R[-1;-2] := A[3,-1,1,2]*conj(B[3,-2,2,1])
-    R = R::Matrix{Float64}/dim(c)
-    R[1:N1,1:N2]
+    Array(R)[1:N1,1:N2]/dim(c)
 end
 
 #this is not the correct \otimes, it repeats in case of multiplicities

@@ -48,13 +48,10 @@ function weight2parmap(weight2child)
 end
 
 function heighest_weight_CGC(p1,p2,p3)
-    prodmap(t) = prodmap(t...);
-    prodmap(i,j) = (i-1)*length(p2)+j
-
     whw = Wz(p3[end]);
     N = p3[end].N
 
-    T = fill(0.0,length(p1)*length(p2),length(p1)*length(p2));
+    T = TensorOperations.SparseArray{Float64}(undef,(length(p1),length(p2),length(p1),length(p2)));
     used_dom = Vector{Tuple{Int64,Int64}}();
     used_codom = Vector{Tuple{Int64,Int64}}(); #this should be a set instead of calling unique on it at the end ...
 
@@ -68,20 +65,25 @@ function heighest_weight_CGC(p1,p2,p3)
             for (pref,ap1) in creation(p1[j],l)
                 x = (findfirst(x->isequal(x,ap1),p1),k);
                 push!(used_codom,x)
-                T[prodmap(x),prodmap(j,k)] += pref;
+                T[x[1],x[2],j,k] += pref;
             end
             for (pref,ap2) in creation(p2[k],l)
                 x = (j,findfirst(x->isequal(x,ap2),p2));
                 push!(used_codom,x)
-                T[prodmap(x),prodmap(j,k)] += pref;
+                T[x[1],x[2],j,k] += pref;
             end
         end
     end
-    T_subslice = T[prodmap.(unique(used_codom)),prodmap.(used_dom)];
 
-    solutions = gauge_fix(LinearAlgebra.nullspace(T_subslice));
+    used_codom = unique(used_codom);
+    dense_T_subslice = zeros(length(used_codom),length(used_dom));
+    for (i,(a,b)) in enumerate(used_codom),(j,(c,d)) in enumerate(used_dom)
+        dense_T_subslice[i,j] = T[a,b,c,d];
+    end
 
-    CGC = fill(0.0,length(p3),size(solutions,2),length(p1),length(p2));
+    solutions = gauge_fix(LinearAlgebra.nullspace(dense_T_subslice));
+
+    CGC = TensorOperations.SparseArray{Float64}(undef,(length(p3),size(solutions,2),length(p1),length(p2)));
     for α in 1:size(solutions,2)
         for (i,(j,k)) in enumerate(used_dom)
             CGC[end,α,j,k] = solutions[i,α]
