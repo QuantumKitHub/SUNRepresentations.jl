@@ -25,12 +25,7 @@ function Base.isless(s1::SUNIrrep{N},s2::SUNIrrep{N}) where N
     n_s1 = normalize(s1);
     n_s2 = normalize(s2);
 
-    iseq = true;
-    for n in 1:N
-        n_s1.s[n]>n_s2.s[n] && return false
-        iseq = iseq && (n_s1.s[n]==n_s2.s[n])
-    end
-    return !iseq
+    return isless(n_s1.s,n_s2.s)
 end
 
 Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where T<:SUNIrrep = Base.IsInfinite()
