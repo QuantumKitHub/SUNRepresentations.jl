@@ -118,7 +118,7 @@ function lower_weight_CGC!(CGC,p1,p2,p3)
             children = weight2child[k];
 
             B = fill(0.0,length(parentbundle),length(children));
-            T = fill(0.0,length(parentbundle),size(CGC,2),length(p1),length(p2));
+            T = TensorOperations.SparseArray{Float64}(undef,(length(parentbundle),size(CGC,2),length(p1),length(p2)));
             for (i,(curpar,l)) in enumerate(parentbundle)
                 for (pref,ana) in anihilation(p3[curpar],l)
                     derp = findfirst(x->isequal(p3[x],ana),children);
@@ -143,8 +143,8 @@ function lower_weight_CGC!(CGC,p1,p2,p3)
                     end
                 end
             end
-
-            @tensor solutions[-1,-2,-3,-4]:=pinv(B)[-1,1]*T[1,-2,-3,-4]
+            #as alternative to pinv we can use krylovkit?
+            @tensor solutions[-1,-2,-3,-4] := TensorOperations.SparseArray(pinv(B))[-1,1]*T[1,-2,-3,-4]
             for (i,c) in enumerate(children)
                 CGC[c,:,:,:] = solutions[i,:,:,:]
             end
