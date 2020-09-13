@@ -61,6 +61,7 @@ function GTpatterns(irr::SUNIrrep{N}) where N
 end
 
 function highest_weight_GT(irr::SUNIrrep{N}) where N
+    @show "I don't think I'm ever being called"
     data = Matrix{Int64}(undef,N,N);
     for k = 1:N
         data[k,k:end].=irr.s[k];
@@ -69,40 +70,56 @@ function highest_weight_GT(irr::SUNIrrep{N}) where N
     GTPattern(data)
 end
 
-function creation(p1::GTPattern,l)
-    @assert l >=1 && l <=p1.N-1
-    result = Tuple{Float64,typeof(p1)}[];
-    for k = 1:l
-        a = prod((p1[kp,l+1]-p1[k,l]+k-kp for kp in 1:l+1));
-        b = l>1 ? prod((p1[kp,l-1]-p1[k,l]+k-kp-1 for kp in 1:l-1)) : 1;
-        c = prod((kp==k ? 1 : (p1[kp,l] - p1[k,l] + k - kp)*(p1[kp,l]-p1[k,l]+k-kp-1) for kp in 1:l))
+function creation(ps::Vector{GTPattern})
+    N = ps[1].N;
+    result = [SparseArray{Float64}(undef,length(ps),length(ps)) for i in 1:N-1];
 
-        pref = sqrt((-1.0)*a*b/c)
-        if pref != 0 && c != 0
-            td = copy(p1.data);
-            td[k,l]+=1;
-            push!(result,(pref,GTPattern(td)));
+    for (i,p) in enumerate(ps)
+        for l = 1:N-1,k = 1:l
+            pref = -1//1;
+            for kp in 1:l+1
+                pref*=p[kp,l+1]-p[k,l]+k-kp;
+                if kp <= l-1; pref*=p[kp,l-1]-p[k,l]+k-kp-1; end
+                numerator(pref) == 0 && break;
+
+                if kp <= l && kp != k; pref//= (p[kp,l] - p[k,l] + k - kp)*(p[kp,l]-p[k,l]+k-kp-1);end
+                denominator(pref) == 0 && break;
+            end
+
+            (denominator(pref) == 0 || numerator(pref) == 0) && continue;
+
+            td = deepcopy(p.data); td[k,l]+=1;
+            fi = findfirst(x->isequal(x.data,td),ps);
+            result[l][fi,i] += sqrt(pref);
         end
     end
 
-    return result
+    return result;
 end
 
-function anihilation(p1::GTPattern,l)
-    @assert l >=1 && l <=p1.N-1
-    result = Tuple{Float64,typeof(p1)}[];
-    for k = 1:l
-        a = prod((p1[kp,l+1]-p1[k,l]+k-kp+1 for kp in 1:l+1));
-        b = l>1 ? prod((p1[kp,l-1]-p1[k,l]+k-kp for kp in 1:l-1)) : 1;
-        c = prod((kp==k ? 1 : (p1[kp,l] - p1[k,l] + k - kp + 1)*(p1[kp,l]-p1[k,l]+k-kp) for kp in 1:l))
+function anihilation(ps::Vector{GTPattern})
+    N = ps[1].N;
+    result = [SparseArray{Float64}(undef,length(ps),length(ps)) for i in 1:N-1];
 
-        pref = sqrt((-1.0)*a*b/c)
-        if pref != 0 && c != 0
-            td = copy(p1.data);
-            td[k,l]-=1;
-            push!(result,(pref,GTPattern(td)));
+    for (i,p) in enumerate(ps)
+        for l = 1:N-1,k = 1:l
+            pref = -1//1;
+            for kp in 1:l+1
+                pref*=p[kp,l+1]-p[k,l]+k-kp+1;
+                if kp <= l-1; pref*=p[kp,l-1]-p[k,l]+k-kp; end
+                numerator(pref) == 0 && break;
+
+                if kp <= l && kp != k; pref//= (p[kp,l] - p[k,l] + k - kp + 1)*(p[kp,l]-p[k,l]+k-kp);end
+                denominator(pref) == 0 && break;
+            end
+
+            (denominator(pref) == 0 || numerator(pref) == 0) && continue;
+
+            td = deepcopy(p.data); td[k,l]-=1;
+            fi = findfirst(x->isequal(x.data,td),ps);
+            result[l][fi,i] += sqrt(pref);
         end
     end
 
-    return result
+    return result;
 end
