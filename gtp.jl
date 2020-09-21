@@ -60,16 +60,6 @@ function GTpatterns(irr::SUNIrrep{N}) where N
     sort(patterns)
 end
 
-function highest_weight_GT(irr::SUNIrrep{N}) where N
-    @show "I don't think I'm ever being called"
-    data = Matrix{Int64}(undef,N,N);
-    for k = 1:N
-        data[k,k:end].=irr.s[k];
-        data[k,1:k-1].=0
-    end
-    GTPattern(data)
-end
-
 function creation(ps::Vector{GTPattern})
     N = ps[1].N;
     result = [SparseArray{Float64}(undef,length(ps),length(ps)) for i in 1:N-1];

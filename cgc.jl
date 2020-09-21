@@ -14,57 +14,32 @@ function gauge_fix(C)
     C*conj.(q)
 end
 
-# maps a given weight to the (index of) the patterns with that weight
-function weight2childmap(w3)
-    weight2child = Dict((w=>Int[] for w in w3))
-    for (i,w) in enumerate(w3)
-        push!(weight2child[w],i)
-    end
-    return weight2child;
-end
-
-# for every weight it will return all "parent weights", along with how to get there
-function weight2parmap(weight2child)
-    weight2parent = Dict((w=>Vector{Tuple{Int,Int}}() for w in keys(weight2child)));
-    for w in keys(weight2child)
-        for l in 1:length(w)-1
-            d = fill(0,length(w));
-            d[l] = 1;
-            d[l+1] = -1;
-
-            if w+d in keys(weight2child)
-                append!(weight2parent[w],zip(weight2child[w+d],fill(l,length(weight2child[w+d]))))
-            end
-        end
-
-    end
-    return weight2parent
-end
-
 function heighest_weight_CGC(p1,p2,p3)
-    T = SparseArray{Float64}(undef,length(p1),length(p2),length(p1),length(p2));
+    N = p3[1].N;
+    T = SparseArray{Float64}(undef,length(p1),length(p2),length(p1),length(p2),N-1);
 
     used_dom = Vector{Tuple{Int64,Int64}}();
-    used_codom = Vector{Tuple{Int64,Int64}}();
+    used_codom = Vector{Tuple{Int64,Int64,Int64}}();
 
     for (j,cp1) in enumerate(p1),(k,cp2) in enumerate(p2)
         #this is the selection rule (jz_1 + jz_2 = jz_total)
         Wz(cp1)+Wz(cp2) == Wz(p3[end]) || continue
         push!(used_dom,(j,k))
 
-        for c1 in creation(p1), (l,v) in enumerate(c1[:,j])
-            push!(used_codom,(l,k))
-            T[l,k,j,k] += v;
+
+        for (opp_ind,c1) in enumerate(creation(p1)), (l,v) in enumerate(c1[:,j])
+            push!(used_codom,(l,k,opp_ind))
+            T[l,k,j,k,opp_ind] += v;
         end
-        for c2 in creation(p2), (l,v) in enumerate(c2[:,k])
-            push!(used_codom,(j,l))
-            T[j,l,j,k] += v;
+        for (opp_ind,c2) in enumerate(creation(p2)), (l,v) in enumerate(c2[:,k])
+            push!(used_codom,(j,l,opp_ind))
+            T[j,l,j,k,opp_ind] += v;
         end
     end
     used_codom = unique(used_codom);
     dense_T_subslice = zeros(length(used_codom),length(used_dom));
-    for (i,(a,b)) in enumerate(used_codom),(j,(c,d)) in enumerate(used_dom)
-        dense_T_subslice[i,j] = T[a,b,c,d];
+    for (i,(a,b,opp_ind)) in enumerate(used_codom),(j,(c,d)) in enumerate(used_dom)
+        dense_T_subslice[i,j] = T[a,b,c,d,opp_ind];
     end
 
     solutions = gauge_fix(LinearAlgebra.nullspace(dense_T_subslice));
@@ -79,61 +54,81 @@ function heighest_weight_CGC(p1,p2,p3)
 end
 
 function lower_weight_CGC!(CGC,p1,p2,p3)
-    wp3 = W.(p3);
-
-    weight2child = weight2childmap(wp3);
-    weight2parent = weight2parmap(weight2child);
-
-    #we assume that we know the heighest weight cGC
     known = fill(false,length(p3));
-    known[end] = true;
+    child2parmap = Dict{Int64,Vector{Tuple{Int64,Int64,Float64}}}();
+    N = p3[1].N;
 
-    @assert isempty(weight2parent[wp3[end]]) # there are no parents of the largest weight irrep
-    delete!(weight2parent,wp3[end]);
+    function graduate!(new_parent)
+        delete!(child2parmap,new_parent);
+        known[new_parent] = true;
 
-    infloop = false
-    while !infloop
-        infloop = true;
+        for (j1,ana) in enumerate(anihilation(p3)),(new_child,val) in enumerate(ana[:,new_parent])
+            val == zero(val) && continue;
 
-        for (k,parentbundle) in weight2parent
+            cur = Vector{Tuple{Int64,Int64,Float64}}();
+            for (j2,crea) in enumerate(creation(p3)),(other_parent,tval) in enumerate(crea[:,new_child])
+                tval == zero(tval) && continue;
+                push!(cur,(other_parent,j2,conj(tval)));
+            end
+            child2parmap[new_child] = cur;
+        end
+    end
 
-            #we don't know all parents
-            !reduce(&,map(x->known[x[1]],parentbundle)) && continue
+    graduate!(length(p3));
+    while !isempty(child2parmap)
+        curent_class = Int64[];
+        sparse2dense = SparseArray{Int64}(undef,length(p3),N-1);
+        dense_len = 0;
 
-            children = weight2child[k];
-            B = fill(0.0,length(parentbundle),length(children));
-            T = TensorOperations.SparseArray{Float64}(undef,(length(parentbundle),size(CGC,2),length(p1),length(p2)));
-            for (i,(curpar,l)) in enumerate(parentbundle)
+        for (k,v) in child2parmap
+            if reduce(&,map(x->known[x[1]],v)) # all parents are known
+                push!(curent_class,k);
+                for (p,j,_) in v
+                    if sparse2dense[p,j] == zero(sparse2dense[p,j])
+                        dense_len += 1;
+                        sparse2dense[p,j] = dense_len
+                    end
+                end
+            end
+        end
 
 
-                for (ana,pref) in enumerate(anihilation(p3)[l][:,curpar])
+        isempty(curent_class) && throw(ArgumentError("disconnected"));
+
+        B = fill(0.0,dense_len,length(curent_class));
+        T = SparseArray{Float64}(undef,dense_len,size(CGC,2),length(p1),length(p2));
+
+        #build B
+        for (child_index,child) in enumerate(curent_class),
+            (parent,j,val) in child2parmap[child]
+
+            B[sparse2dense[parent,j],child_index] += val;
+        end
+
+        #build T
+        for (index,val) in TensorOperations.nonzeros(sparse2dense)
+            (parent,j) = Tuple(index);
+
+            for α = 1:size(T,2),ip1 = 1:size(T,3),ip2 = 1:size(T,4)
+                cur_CGC = CGC[parent,α,ip1,ip2];
+                cur_CGC == zero(cur_CGC) && continue;
+
+                for (derp,pref) in enumerate(anihilation(p1)[j][:,ip1])
                     pref == zero(pref) && continue;
-                    B[i,findfirst(x->isequal(x,ana),children)] += pref;
+                    T[val,α,derp,ip2] += pref*cur_CGC;
                 end
 
-                for α = 1:size(T,2),ip1 = 1:size(T,3),ip2 = 1:size(T,4)
-                    cur_CGC = CGC[curpar,α,ip1,ip2];
-                    cur_CGC == zero(cur_CGC) && continue;
-
-                    for (derp,pref) in enumerate(anihilation(p1)[l][:,ip1])
-                        T[i,α,derp,ip2] += pref*cur_CGC;
-                    end
-
-                    for (derp,pref) in enumerate(anihilation(p2)[l][:,ip2])
-                        T[i,α,ip1,derp] += pref*cur_CGC;
-                    end
+                for (derp,pref) in enumerate(anihilation(p2)[j][:,ip2])
+                    pref == zero(pref) && continue;
+                    T[val,α,ip1,derp] += pref*cur_CGC;
                 end
             end
-            #as alternative to pinv we can use krylovkit?
-            @tensor solutions[-1,-2,-3,-4] := TensorOperations.SparseArray(pinv(B))[-1,1]*T[1,-2,-3,-4]
-            for (i,c) in enumerate(children)
-                CGC[c,:,:,:] = solutions[i,:,:,:]
-            end
+        end
 
-            infloop = false;
-            known[children].=true;
-            delete!(weight2parent,k);
-            break;
+        @tensor solutions[-1,-2,-3,-4] := TensorOperations.SparseArray(pinv(B))[-1,1]*T[1,-2,-3,-4]
+        for (i,c) in enumerate(curent_class)
+            CGC[c,:,:,:] = solutions[i,:,:,:]
+            graduate!(c);
         end
     end
 end

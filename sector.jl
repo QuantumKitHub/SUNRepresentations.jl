@@ -6,14 +6,6 @@ GTP = gelfand-Tsetlin pattern
 sectors.jl contains the sector definition
 gtp.jl contains gtp bells and whistles
 cgc.jl uses gtp/sectors to calculate clebschgordans
-
-things to change
-    - data container in GTPattern
-    - some names
-    - if I implement the indexing from the paper, the CGC routine will be so much nicer (no more findindex)
-    - use sparse tensors for the CGCs
-
-However, runtime should be in the matrix inversion / nullspace subroutines anyway
 =#
 
 struct SUNIrrep{N}<:Irrep{SU{N}}
