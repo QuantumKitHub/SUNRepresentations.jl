@@ -1,13 +1,3 @@
-using RowEchelon
-
-#=
-GTP = gelfand-Tsetlin pattern
-
-sectors.jl contains the sector definition
-gtp.jl contains gtp bells and whistles
-cgc.jl uses gtp/sectors to calculate clebschgordans
-=#
-
 struct SUNIrrep{N}<:Irrep{SU{N}}
     s::NTuple{N,Int64}
 end
@@ -124,6 +114,3 @@ end
 function TensorKit.fusiontensor(s1::SUNIrrep{N},s2::SUNIrrep{N},s3::SUNIrrep{N}) where N
     ft = permutedims(CGC(s1,s2,s3),(3,4,1,2))[:,:,:,1:Nsymbol(s1,s2,s3)];
 end
-
-include("gtp.jl")
-include("cgc.jl")

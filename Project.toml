@@ -1,0 +1,10 @@
+name = "SUNClebschGordan"
+uuid = "b20eae28-4516-41a8-9a99-8cf238746c4e"
+authors = ["maarten <maarten.vandamme@ugent.be>"]
+version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+RowEchelon = "af85af4c-bcd5-5d23-b03a-a909639aa875"
+TensorKit = "07d1fe3e-3e46-537d-9eac-e9e13d0d4cec"
+TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"

@@ -36,13 +36,6 @@ function Wz(d::GTPattern)
 
 end
 
-#the pattern weight
-function W(d::GTPattern)
-    w = [rowsum(d,i) for i in 1:d.N];
-    w[2:end]-=w[1:end-1]
-    w
-end
-
 #find all gtpatterns associated to a given irrep
 function GTpatterns(irr::SUNIrrep{N}) where N
     N == 1 && return [GTPattern(fill(irr.s[1],1,1))]
