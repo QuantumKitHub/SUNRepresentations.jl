@@ -1,10 +1,19 @@
-name = "SUNClebschGordan"
-uuid = "b20eae28-4516-41a8-9a99-8cf238746c4e"
-authors = ["maarten <maarten.vandamme@ugent.be>"]
+name = "SUNRepresentations"
+uuid = "1a50b95c-7aac-476d-a9ce-2bfc675fc617"
+authors = ["Maarten Van Damme <Maarten.VanDamme@UGent.be> and Jutho Haegeman <jutho.haegeman@ugent.be>"]
 version = "0.1.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-RowEchelon = "af85af4c-bcd5-5d23-b03a-a909639aa875"
-TensorKit = "07d1fe3e-3e46-537d-9eac-e9e13d0d4cec"
+RationalRoots = "308eb6b3-cc68-5ff3-9e97-c3c4da4fa681"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
+
+[compat]
+julia = "1.4"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
