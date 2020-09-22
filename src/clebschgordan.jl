@@ -58,6 +58,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     solutions = nullspace(reduced_eqs)
     N123 = size(solutions, 2)
 
+    #I didn't know this was true
     @assert N123 == directproduct(s1, s2)[s3]
 
     solutions = gaugefix(solutions)
@@ -65,7 +66,8 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     CGC = SparseArray{T}(undef, d1, d2, d3, N123)
     for α = 1:N123
         for (i, j1j2) in enumerate(cols)
-            CGC[j1j2, end, α] = solutions[i, α]
+            #replacing d3 with end fails, because of a subtle sparsearray bug
+            CGC[j1j2, d3, α] = solutions[i, α]
         end
     end
 
@@ -165,7 +167,7 @@ end
 function qrpos!(C)
     q, r = qr(C)
     d = diag(r)
-    map!(sign, d, d)
+    map!(x-> x == zero(x) ? 1 : sign(x), d, d)
     D = Diagonal(d)
     Q = rmul!(Matrix(q), D)
     R = ldiv!(D, Matrix(r))

@@ -14,10 +14,11 @@ struct Irrep{N} # Irrep of SU(N)
     I::NTuple{N,Int}
 end
 Irrep(args::Vararg{Int}) = Irrep(args)
+Base.isless(s1::Irrep{N}, s2::Irrep{N}) where N = isless(s1.I, s2.I)
 
 _normalize(s::Irrep) = (I = weight(s); return Irrep(I .- I[end]))
 
-Base.getproperty(s::Irrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(i, f)
+Base.getproperty(s::Irrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(s, f)
 weight(s::Irrep) = getfield(s, :I)
 
 function dimension(s::Irrep)

@@ -28,11 +28,11 @@ TensorKit.dim(s::SUNIrrep) = dimension(Irrep(s.I))
 Base.conj(s::SUNIrrep) = SUNIrrep((reverse(s.I) .- s.I[1]) .* -1) #maybe? https://aip.scitation.org/doi/pdf/10.1063/1.1704095
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(n->0, N))
 
-TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = DegenerateNonAbelian()
+TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = TensorKit.DegenerateNonAbelian()
 Base.isreal(::Type{<:SUNIrrep}) = true
-TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic();
+TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic();
 
-TensorKit.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where N = keys(directproduct(Irrep(s1.I), Irrep(s2.I)))
+TensorKit.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where N = (SUNIrrep(weight(k)) for k in keys(directproduct(Irrep(s1.I), Irrep(s2.I))))
 TensorKit.Nsymbol(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where N = get(directproduct(Irrep(s1.I), Irrep(s2.I)), Irrep(s3.I), 0)
 
 TensorKit.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where N = CGC(Float64, Irrep(s1.I), Irrep(s2.I), Irrep(s3.I))
@@ -59,11 +59,10 @@ function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where
     N2 = Nsymbol(b, a, c);
 
     (N1 == 0 || N2 == 0) && return fill(0.0, N1, N2)
-    
+
     A = fusiontensor(a, b, c)
     B = fusiontensor(b, a, c)
 
     @tensor R[-1;-2] := conj(B[1, 2, 3, -2]) * A[2, 1, 3, -1]
     Array(R)/dim(c)
 end
-
