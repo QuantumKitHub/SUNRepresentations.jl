@@ -17,7 +17,7 @@ function Base.iterate(::TensorKit.SectorValues{T}, i = ntuple(x->0,Val{N}()))  w
     for j = 2:N-1
         ii = i[j-1]>=i[j]+1>=i[j+1] ? j : ii
     end
-    ni = i.+ntuple(x->x==ii ? 1 : 0,Val{N}());
+    ni = ii == 1 ? ntuple(x-> x == 1 ? i[1]+1 : 0,Val{N}()) : i.+ntuple(x->x==ii ? 1 : 0,Val{N}())
     (SUNIrrep(i),ni)
 end
 

@@ -24,6 +24,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
     N = s1.N
 
+    c1 = creation(s1); c2 = creation(s2);
     eqs = SparseArray{T}(undef, N-1, d1, d2, d1, d2)
 
     cols = Vector{CartesianIndex{2}}()
@@ -39,7 +40,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
         for j2 in get(map2, λ2, Vector{Int}())
             m2 = basis2[j2]
             push!(cols, CartesianIndex(j1, j2))
-            for (l, (Jp1, Jp2)) in enumerate(zip(creation(s1), creation(s2)))
+            for (l, (Jp1, Jp2)) in enumerate(zip(c1,c2))
                 i2 = j2
                 for (i1, v) in nonzeros(Jp1[:, j1])
                     push!(rows, CartesianIndex(l, i1, i2))
@@ -55,6 +56,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     end
     rows = unique!(sort!(rows))
     reduced_eqs = convert(Array, view(eqs, rows, cols))
+
     solutions = nullspace(reduced_eqs)
     N123 = size(solutions, 2)
 
@@ -77,6 +79,7 @@ end
 
 function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
     d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
+    a1, a2, a3, c3 = annihilation(s1), annihilation(s2), annihilation(s3), creation(s3);
     @assert size(CGC,1) == d1 && size(CGC,2) == d2 && size(CGC,3) == d3
     N123 = size(CGC,4);
 
@@ -91,10 +94,10 @@ function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
         delete!(child2parmap,new_parent);
         known[new_parent] = true;
 
-        for (j1,ana) in enumerate(annihilation(s3)),(new_child,val) in nonzeros(ana[:,new_parent])
+        for (j1,ana) in enumerate(a3),(new_child,val) in nonzeros(ana[:,new_parent])
 
             cur = Vector{Tuple{Int64,Int64,Float64}}();
-            for (j2,crea) in enumerate(creation(s3)),(other_parent,tval) in nonzeros(crea[:,new_child])
+            for (j2,crea) in enumerate(c3),(other_parent,tval) in nonzeros(crea[:,new_child])
                 push!(cur,(other_parent,j2,conj(tval)));
             end
             child2parmap[new_child] = cur;
@@ -141,24 +144,29 @@ function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
         for (index,val) in nonzeros(sparse2dense)
             (parent,j) = Tuple(index);
 
-            for ip1 = 1:d1,ip2 = 1:d2,α = 1:N123
-                cur_CGC = CGC[ip1,ip2,parent,α];
-                cur_CGC == zero(cur_CGC) && continue;
+            for (k,cur_CGC) in nonzeros(CGC[:,:,parent,:])
+                (ip1,ip2,α) = Tuple(k)
 
-                for (derp,pref) in nonzeros(annihilation(s1)[j][:,ip1])
+                for (derp,pref) in nonzeros(a1[j][:,ip1])
                     T[derp,ip2,val,α] += pref*cur_CGC;
                 end
 
-                for (derp,pref) in nonzeros(annihilation(s2)[j][:,ip2])
+                for (derp,pref) in nonzeros(a2[j][:,ip2])
                     T[ip1,derp,val,α] += pref*cur_CGC;
                 end
             end
         end
+
         # pinv(B) * T = CGC (we could also use KrylovKit)
         @tensor solutions[-1,-2,-3,-4] := SparseArray(pinv(B))[-3,1]*T[-1,-2,1,-4]
-
         for (i,c) in enumerate(curent_class)
-            CGC[:,:,c,:] = solutions[:,:,i,:]
+
+            # CGC[:,:,c,:] = solutions[:,:,i,:]
+            for (k,v) in nonzeros(solutions[:,:,i,:])
+                (a,b,d) = Tuple(k)
+                CGC[a,b,c,d] = solutions[a,b,i,d];
+            end
+
             graduate!(c);
         end
     end
