@@ -10,7 +10,6 @@ function Z2weightmap(basis)
 end
 
 CGC(s1::I, s2::I, s3::I) where {I<:Irrep} = CGC(Float64, s1, s2, s3)
-
 function CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
     CGC = highest_weight_CGC(T, s1, s2, s3);
     lower_weight_CGC!(CGC, s1, s2, s3)
@@ -20,11 +19,14 @@ end
 #gaugefix(C) = first(qrpos!(transpose(rref!(transpose(C)))))
 gaugefix(C) = C*conj.(first(qrpos!(rref!(permutedims(C)))))
 
+const _emptyindexlist = Vector{Int}()
+
 function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
     d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
     N = s1.N
 
-    c1 = creation(s1); c2 = creation(s2);
+    c1 = creation(s1)
+    c2 = creation(s2)
     eqs = SparseArray{T}(undef, N-1, d1, d2, d1, d2)
 
     cols = Vector{CartesianIndex{2}}()
@@ -37,17 +39,17 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     for (j1, m1) in enumerate(basis(s1))
         λ1 = Z2weight(m1)
         λ2 = λ3 .- λ1
-        for j2 in get(map2, λ2, Vector{Int}())
+        for j2 in get(map2, λ2, _emptyindexlist)
             m2 = basis2[j2]
             push!(cols, CartesianIndex(j1, j2))
-            for (l, (Jp1, Jp2)) in enumerate(zip(c1,c2))
+            for (l, (Jp1, Jp2)) in enumerate(zip(c1, c2))
                 i2 = j2
-                for (i1, v) in nonzeros(Jp1[:, j1])
+                for (i1, v) in nonzero_pairs(Jp1[:, j1])
                     push!(rows, CartesianIndex(l, i1, i2))
                     eqs[l, i1, i2, j1, j2] += v
                 end
                 i1 = j1
-                for (i2, v) in nonzeros(Jp2[:, j2])
+                for (i2, v) in nonzero_pairs(Jp2[:, j2])
                     push!(rows, CartesianIndex(l, i1, i2))
                     eqs[l, i1, i2, j1, j2] += v
                 end
@@ -77,11 +79,14 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
 end
 
 
-function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
-    d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
+function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I<: Irrep{N} where N
+    d1, d2, d3, N123 = size(CGC)
+    # we can probably discard the checks; this is an inner method
+    # d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
+    # @assert size(CGC,1) == d1 && size(CGC,2) == d2 && size(CGC,3) == d3
+    # N123 = size(CGC,4);
+
     a1, a2, a3, c3 = annihilation(s1), annihilation(s2), annihilation(s3), creation(s3);
-    @assert size(CGC,1) == d1 && size(CGC,2) == d2 && size(CGC,3) == d3
-    N123 = size(CGC,4);
 
     #indicates whether the given node is known
     known = fill(false,d3);
@@ -94,13 +99,13 @@ function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
         delete!(child2parmap,new_parent);
         known[new_parent] = true;
 
-        for (j1,ana) in enumerate(a3),(new_child,val) in nonzeros(ana[:,new_parent])
+        for (j1,ana) in enumerate(a3),(new_child,val) in nonzero_pairs(ana[:,new_parent])
 
             cur = Vector{Tuple{Int64,Int64,Float64}}();
-            for (j2,crea) in enumerate(c3),(other_parent,tval) in nonzeros(crea[:,new_child])
+            for (j2,crea) in enumerate(c3),(other_parent,tval) in nonzero_pairs(crea[:,new_child])
                 push!(cur,(other_parent,j2,conj(tval)));
             end
-            child2parmap[new_child] = cur;
+            child2parmap[new_child[1]] = cur;
         end
     end
 
@@ -141,17 +146,17 @@ function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
 
         #build T
         T = SparseArray{eltype(CGC)}(undef,d1,d2,dense_len,N123);
-        for (index,val) in nonzeros(sparse2dense)
+        for (index,val) in nonzero_pairs(sparse2dense)
             (parent,j) = Tuple(index);
 
-            for (k,cur_CGC) in nonzeros(CGC[:,:,parent,:])
+            for (k,cur_CGC) in nonzero_pairs(CGC[:,:,parent,:])
                 (ip1,ip2,α) = Tuple(k)
 
-                for (derp,pref) in nonzeros(a1[j][:,ip1])
+                for (derp,pref) in nonzero_pairs(a1[j][:,ip1])
                     T[derp,ip2,val,α] += pref*cur_CGC;
                 end
 
-                for (derp,pref) in nonzeros(a2[j][:,ip2])
+                for (derp,pref) in nonzero_pairs(a2[j][:,ip2])
                     T[ip1,derp,val,α] += pref*cur_CGC;
                 end
             end
@@ -162,7 +167,7 @@ function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
         for (i,c) in enumerate(curent_class)
 
             # CGC[:,:,c,:] = solutions[:,:,i,:]
-            for (k,v) in nonzeros(solutions[:,:,i,:])
+            for (k,v) in nonzero_pairs(solutions[:,:,i,:])
                 (a,b,d) = Tuple(k)
                 CGC[a,b,c,d] = solutions[a,b,i,d];
             end
