@@ -45,7 +45,26 @@ TensorKit.Nsymbol(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where N =
 TensorKit.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where N =
     CGC(Float64, Irrep(s1.I), Irrep(s2.I), Irrep(s3.I))
 
+const FCACHE = Vector{Any}()
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
+                            d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
+
+    key = (a, b, c, d, e, f)
+    K = typeof(key)
+    V = Array{Float64,4}
+    if length(FCACHE) < N || !isassigned(FCACHE, N)
+        resize!(FCACHE, max(length(FCACHE), N))
+        typeof((a,b,c,d,e,f))
+        cache = Dict{K,V}()
+        FCACHE[N] = cache
+    else
+        cache::Dict{K,V} = FCACHE[N]
+    end
+    return get!(cache, key) do
+        _Fsymbol(a,b,c,d,e,f)
+    end
+end
+function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
                             d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
     N1 = Nsymbol(a,b,e)
     N2 = Nsymbol(e,c,d)
