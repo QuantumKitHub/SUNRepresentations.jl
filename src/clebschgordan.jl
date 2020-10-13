@@ -108,12 +108,17 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I<: Irrep{N} where N
     Jm_list2 = annihilation(s2)
     Jm_list3 = annihilation(s3)
 
+    map1 = weightmap(basis(s1))
+    map2 = weightmap(basis(s2))
     map3 = weightmap(basis(s3))
     w3list = sort(collect(keys(map3)); rev = true) # reverse lexographic order
     # if we solve in this order, all relevant parents should come earlier and should thus
     # have been solved
 
-    # @threads for α = 1:N123
+    @assert rem(sum(s1.I) + sum(s2.I) - sum(s3.I), N) == 0 # TODO: remove
+    wshift = div(sum(s1.I) + sum(s2.I) - sum(s3.I), N)
+
+    # @threads for α = 1:N123 # TODO: consider multithreaded implementation
     for α = 1:N123
         # TODO: known can be removed, currently checks whether impelmentation is correct
         known = fill(false, d3)
@@ -141,20 +146,33 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I<: Irrep{N} where N
                         eqs[i, j] = Jm3[m3, m3′]
                     end
                     @assert known[m3′] # TODO: remove
-                    for (Im1m2′, CGCcoeff) in nonzero_pairs(CGC[:, :, m3′, α])
-                        m1′ = Im1m2′[1]
-                        m2′ = Im1m2′[2]
-                        for (Im1, Jm1coeff) in nonzero_pairs(Jm1[:, m1′])
-                            m1 = Im1[1]
-                            m2 = m2′
-                            rhs[i, m1, m2] += Jm1coeff*CGCcoeff
-                            push!(rows, CartesianIndex(m1, m2))
-                        end
-                        for (Im2, Jm2coeff) in nonzero_pairs(Jm2[:, m2′])
-                            m1 = m1′
-                            m2 = Im2[1]
-                            rhs[i, m1, m2] += Jm2coeff*CGCcoeff
-                            push!(rows, CartesianIndex(m1, m2))
+                    for w1′ in keys(map1)
+                        w2′ = w3′ .- w1′ .+ wshift
+                        haskey(map2, w2′) || continue
+                    # TODO: switch depending on length(map1) > or < length(map2)
+                    # for w2′ in keys(map2)
+                    #     w1′ = w3′ .- w2′ .+ wshift
+                    #     haskey(map1, w1′) || continue
+                        for m1′ in map1[w1′], m2′ in map2[w2′]
+                            CGCcoeff = CGC[m1′, m2′, m3′, α]
+                            # apply Jm1 (annihilator on 1)
+                            w1 = Base.setindex(w1′, w1′[l]-1, l)
+                            w1 = Base.setindex(w1, w1′[l+1]+1, l+1)
+                            for m1 in get(map1, w1, _emptyindexlist)
+                                m2 = m2′
+                                Jm1coeff = Jm1[m1, m1′]
+                                rhs[i, m1, m2] += Jm1coeff*CGCcoeff
+                                push!(rows, CartesianIndex(m1, m2))
+                            end
+                            # apply Jm2
+                            w2 = Base.setindex(w2′, w2′[l]-1, l)
+                            w2 = Base.setindex(w2, w2′[l+1]+1, l+1)
+                            for m2 in get(map2, w2, _emptyindexlist)
+                                m1 = m1′
+                                Jm2coeff = Jm2[m2, m2′]
+                                rhs[i, m1, m2] += Jm2coeff*CGCcoeff
+                                push!(rows, CartesianIndex(m1, m2))
+                            end
                         end
                     end
                 end
