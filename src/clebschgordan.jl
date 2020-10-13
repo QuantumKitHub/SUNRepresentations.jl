@@ -8,10 +8,27 @@ function Z2weightmap(basis)
     end
     return weights
 end
+function weightmap(basis)
+    N = first(basis).N
+    # basis could be a GTPatternIterator{N}, but also a Vector{GTPattern{N}}
+    weights = Dict{NTuple{N,Int}, Vector{Int}}()
+    for (i, m) in enumerate(basis)
+        w = weight(m)
+        push!(get!(weights, w, Int[]), i)
+    end
+    return weights
+end
 
+CGCCACHE = Dict{Any, Any}()
 CGC(s1::I, s2::I, s3::I) where {I<:Irrep} = CGC(Float64, s1, s2, s3)
-
-function CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
+function CGC(T::Type{<:Real}, s1::Irrep{N}, s2::Irrep{N}, s3::Irrep{N}) where {N}
+    cachetype = Dict{Tuple{Irrep{N}, Irrep{N}, Irrep{N}}, SparseArray{T,4}}
+    cache = get!(CGCCACHE, (N, T), cachetype())::cachetype
+    return get!(cache, (s1, s2, s3)) do
+        _CGC(Float64, s1, s2, s3)
+    end
+end
+function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
     CGC = highest_weight_CGC(T, s1, s2, s3);
     lower_weight_CGC!(CGC, s1, s2, s3)
     CGC
@@ -20,11 +37,14 @@ end
 #gaugefix(C) = first(qrpos!(transpose(rref!(transpose(C)))))
 gaugefix(C) = C*conj.(first(qrpos!(rref!(permutedims(C)))))
 
+const _emptyindexlist = Vector{Int}()
+
 function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
     d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
     N = s1.N
 
-    c1 = creation(s1); c2 = creation(s2);
+    Jp_list1 = creation(s1)
+    Jp_list2 = creation(s2)
     eqs = SparseArray{T}(undef, N-1, d1, d2, d1, d2)
 
     cols = Vector{CartesianIndex{2}}()
@@ -37,17 +57,17 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     for (j1, m1) in enumerate(basis(s1))
         λ1 = Z2weight(m1)
         λ2 = λ3 .- λ1
-        for j2 in get(map2, λ2, Vector{Int}())
+        for j2 in get(map2, λ2, _emptyindexlist)
             m2 = basis2[j2]
             push!(cols, CartesianIndex(j1, j2))
-            for (l, (Jp1, Jp2)) in enumerate(zip(c1,c2))
+            for (l, (Jp1, Jp2)) in enumerate(zip(Jp_list1, Jp_list2))
                 i2 = j2
-                for (i1, v) in nonzeros(Jp1[:, j1])
+                for (i1, v) in nonzero_pairs(Jp1[:, j1])
                     push!(rows, CartesianIndex(l, i1, i2))
                     eqs[l, i1, i2, j1, j2] += v
                 end
                 i1 = j1
-                for (i2, v) in nonzeros(Jp2[:, j2])
+                for (i2, v) in nonzero_pairs(Jp2[:, j2])
                     push!(rows, CartesianIndex(l, i1, i2))
                     eqs[l, i1, i2, j1, j2] += v
                 end
@@ -60,7 +80,6 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     solutions = nullspace(reduced_eqs)
     N123 = size(solutions, 2)
 
-    #I didn't know this was true
     @assert N123 == directproduct(s1, s2)[s3]
 
     solutions = gaugefix(solutions)
@@ -77,100 +96,103 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
 end
 
 
-function lower_weight_CGC!(CGC,s1::I,s2::I,s3::I) where I<: Irrep{N} where N
-    d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
-    a1, a2, a3, c3 = annihilation(s1), annihilation(s2), annihilation(s3), creation(s3);
-    @assert size(CGC,1) == d1 && size(CGC,2) == d2 && size(CGC,3) == d3
-    N123 = size(CGC,4);
+function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I<: Irrep{N} where N
+    d1, d2, d3, N123 = size(CGC)
+    T = eltype(CGC)
+    # we can probably discard the checks; this is an inner method
+    # d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
+    # @assert size(CGC,1) == d1 && size(CGC,2) == d2 && size(CGC,3) == d3
+    # N123 = size(CGC,4);
 
-    #indicates whether the given node is known
-    known = fill(false,d3);
+    Jm_list1 = annihilation(s1)
+    Jm_list2 = annihilation(s2)
+    Jm_list3 = annihilation(s3)
 
-    #given a child, maps to (par,J,fact) where <par| S_j^+ |child> = fact
-    child2parmap = Dict{Int64,Vector{Tuple{Int64,Int64,Float64}}}();
+    map1 = weightmap(basis(s1))
+    map2 = weightmap(basis(s2))
+    map3 = weightmap(basis(s3))
+    w3list = sort(collect(keys(map3)); rev = true) # reverse lexographic order
+    # if we solve in this order, all relevant parents should come earlier and should thus
+    # have been solved
 
-    # mark the given element as fully solved
-    function graduate!(new_parent)
-        delete!(child2parmap,new_parent);
-        known[new_parent] = true;
+    @assert rem(sum(s1.I) + sum(s2.I) - sum(s3.I), N) == 0 # TODO: remove
+    wshift = div(sum(s1.I) + sum(s2.I) - sum(s3.I), N)
 
-        for (j1,ana) in enumerate(a3),(new_child,val) in nonzeros(ana[:,new_parent])
+    # @threads for α = 1:N123 # TODO: consider multithreaded implementation
+    for α = 1:N123
+        # TODO: known can be removed, currently checks whether impelmentation is correct
+        known = fill(false, d3)
+        known[d3] = true
 
-            cur = Vector{Tuple{Int64,Int64,Float64}}();
-            for (j2,crea) in enumerate(c3),(other_parent,tval) in nonzeros(crea[:,new_child])
-                push!(cur,(other_parent,j2,conj(tval)));
+        for w3 in view(w3list, 2:length(w3list))
+            m3list = map3[w3]
+            jmax = length(m3list)
+            imax = sum(1:N-1) do l
+                w3′ = Base.setindex(w3, w3[l]+1, l)
+                w3′ = Base.setindex(w3′, w3[l+1]-1, l+1)
+                return length(get(map3, w3′, _emptyindexlist))
             end
-            child2parmap[new_child] = cur;
-        end
-    end
-
-    graduate!(d3);
-    while !isempty(child2parmap)
-
-        curent_class = Int64[]; #these are the kids we will solve for
-        sparse2dense = SparseArray{Int64}(undef,d3,N-1); #maps (parent,J) to it's dense index
-        dense_len = 0; #maximum(sparse2dense[:])
-
-        #for every child - parents combo:
-        #if all parents are known - add child 2 class
-        for (k,v) in child2parmap
-            if reduce(&,map(x->known[x[1]],v)) # all parents are known
-                push!(curent_class,k);
-
-                #we need to map parent - j combos to an index (this effectively indexes the system of equations)
-                for (p,j,_) in v
-                    if sparse2dense[p,j] == zero(sparse2dense[p,j])
-                        dense_len += 1;
-                        sparse2dense[p,j] = dense_len
+            eqs = Array{T}(undef, (imax, jmax))
+            rhs = SparseArray{T}(undef, (imax, d1, d2))
+            i = 0
+            rows = Vector{CartesianIndex{2}}()
+            # build equations
+            for (l, (Jm1, Jm2, Jm3)) in enumerate(zip(Jm_list1, Jm_list2, Jm_list3))
+                w3′ = Base.setindex(w3, w3[l]+1, l)
+                w3′ = Base.setindex(w3′, w3[l+1]-1, l+1)
+                for (k, m3′) in enumerate(get(map3, w3′, _emptyindexlist))
+                    i += 1
+                    for (j, m3) in enumerate(m3list)
+                        eqs[i, j] = Jm3[m3, m3′]
+                    end
+                    @assert known[m3′] # TODO: remove
+                    for w1′ in keys(map1)
+                        w2′ = w3′ .- w1′ .+ wshift
+                        haskey(map2, w2′) || continue
+                    # TODO: switch depending on length(map1) > or < length(map2)
+                    # for w2′ in keys(map2)
+                    #     w1′ = w3′ .- w2′ .+ wshift
+                    #     haskey(map1, w1′) || continue
+                        for m1′ in map1[w1′], m2′ in map2[w2′]
+                            CGCcoeff = CGC[m1′, m2′, m3′, α]
+                            # apply Jm1 (annihilator on 1)
+                            w1 = Base.setindex(w1′, w1′[l]-1, l)
+                            w1 = Base.setindex(w1, w1′[l+1]+1, l+1)
+                            for m1 in get(map1, w1, _emptyindexlist)
+                                m2 = m2′
+                                Jm1coeff = Jm1[m1, m1′]
+                                rhs[i, m1, m2] += Jm1coeff*CGCcoeff
+                                push!(rows, CartesianIndex(m1, m2))
+                            end
+                            # apply Jm2
+                            w2 = Base.setindex(w2′, w2′[l]-1, l)
+                            w2 = Base.setindex(w2, w2′[l+1]+1, l+1)
+                            for m2 in get(map2, w2, _emptyindexlist)
+                                m1 = m1′
+                                Jm2coeff = Jm2[m2, m2′]
+                                rhs[i, m1, m2] += Jm2coeff*CGCcoeff
+                                push!(rows, CartesianIndex(m1, m2))
+                            end
+                        end
                     end
                 end
             end
-        end
-
-        #we cannot (even though we should be able to) solve the system of equations using the current approach
-        #instead of inflooping, we throw an error (tough this should never ever happen)
-        isempty(curent_class) && throw(ArgumentError("disconnected"));
-
-        #build B
-        B = fill(zero(eltype(CGC)),dense_len,length(curent_class));
-        for (child_index,child) in enumerate(curent_class),
-            (parent,j,val) in child2parmap[child]
-
-            B[sparse2dense[parent,j],child_index] = val;
-        end
-
-        #build T
-        T = SparseArray{eltype(CGC)}(undef,d1,d2,dense_len,N123);
-        for (index,val) in nonzeros(sparse2dense)
-            (parent,j) = Tuple(index);
-
-            for (k,cur_CGC) in nonzeros(CGC[:,:,parent,:])
-                (ip1,ip2,α) = Tuple(k)
-
-                for (derp,pref) in nonzeros(a1[j][:,ip1])
-                    T[derp,ip2,val,α] += pref*cur_CGC;
+            # solve equations
+            ieqs = pinv(eqs)
+            for (j, m3) in enumerate(m3list)
+                @assert !known[m3] # TODO: remove
+                @inbounds for Im1m2 in unique!(sort!(rows))
+                    for i = 1:imax
+                        CGC[Im1m2, m3, α] += ieqs[j, i] * rhs[i, Im1m2]
+                    end
                 end
-
-                for (derp,pref) in nonzeros(a2[j][:,ip2])
-                    T[ip1,derp,val,α] += pref*cur_CGC;
-                end
+                known[m3] = true # TODO: remove
             end
-        end
-
-        # pinv(B) * T = CGC (we could also use KrylovKit)
-        @tensor solutions[-1,-2,-3,-4] := SparseArray(pinv(B))[-3,1]*T[-1,-2,1,-4]
-        for (i,c) in enumerate(curent_class)
-
-            # CGC[:,:,c,:] = solutions[:,:,i,:]
-            for (k,v) in nonzeros(solutions[:,:,i,:])
-                (a,b,d) = Tuple(k)
-                CGC[a,b,c,d] = solutions[a,b,i,d];
-            end
-
-            graduate!(c);
         end
     end
+    return CGC
 end
+
 # Auxiliary tools
 function qrpos!(C)
     q, r = qr(C)

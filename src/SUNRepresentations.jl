@@ -1,7 +1,7 @@
 module SUNRepresentations
 
 using TensorOperations
-using TensorOperations: SparseArray, nonzeros
+using SparseArrayKit
 using RationalRoots
 using Requires
 using LinearAlgebra
