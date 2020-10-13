@@ -49,12 +49,12 @@ function hasfusiontensor(I::Type{<:Sector})
     end
 end
 
-# sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
-sectorlist = ()
+sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
+# sectorlist = (SUNIrrep{3}, SUNIrrep{3} ⊠ SUNIrrep{3}, SUNIrrep{4})
 
 Ti = time()
 include("sectors.jl")
-include("fusiontrees.jl")
+# include("fusiontrees.jl")
 Tf = time()
 printstyled("Finished all tests in ",
             string(round((Tf-Ti)/60; sigdigits=3)),
