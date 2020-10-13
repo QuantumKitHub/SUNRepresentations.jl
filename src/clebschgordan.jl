@@ -19,8 +19,16 @@ function weightmap(basis)
     return weights
 end
 
+CGCCACHE = Dict{Any, Any}()
 CGC(s1::I, s2::I, s3::I) where {I<:Irrep} = CGC(Float64, s1, s2, s3)
-function CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
+function CGC(T::Type{<:Real}, s1::Irrep{N}, s2::Irrep{N}, s3::Irrep{N}) where {N}
+    cachetype = Dict{Tuple{Irrep{N}, Irrep{N}, Irrep{N}}, SparseArray{T,4}}
+    cache = get!(CGCCACHE, (N, T), cachetype())::cachetype
+    return get!(cache, (s1, s2, s3)) do
+        _CGC(Float64, s1, s2, s3)
+    end
+end
+function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
     CGC = highest_weight_CGC(T, s1, s2, s3);
     lower_weight_CGC!(CGC, s1, s2, s3)
     CGC
