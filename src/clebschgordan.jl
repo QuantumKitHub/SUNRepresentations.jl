@@ -39,7 +39,7 @@ gaugefix(C) = C*conj.(first(qrpos!(rref!(permutedims(C)))))
 
 const _emptyindexlist = Vector{Int}()
 
-function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
+function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where I <: Irrep
     d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
     N = s1.N
 
@@ -50,32 +50,31 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
     cols = Vector{CartesianIndex{2}}()
     rows = Vector{CartesianIndex{3}}()
 
-    basis2 = collect(basis(s2))
-    map2 = Z2weightmap(basis2)
-    m3 = highest_weight(s3)
-    λ3 = Z2weight(m3)
-    for (j1, m1) in enumerate(basis(s1))
-        λ1 = Z2weight(m1)
-        λ2 = λ3 .- λ1
-        for j2 in get(map2, λ2, _emptyindexlist)
-            m2 = basis2[j2]
-            push!(cols, CartesianIndex(j1, j2))
+    map2 = weightmap(basis(s2))
+    w3 = weight(highest_weight(s3))
+    wshift = div(sum(s1.I) + sum(s2.I) - sum(s3.I), N)
+
+    for (m1, pat1) in enumerate(basis(s1))
+        w1 = weight(pat1)
+        w2 = w3 .- w1 .+ wshift
+        for m2 in get(map2, w2, _emptyindexlist)
+            push!(cols, CartesianIndex(m1, m2))
             for (l, (Jp1, Jp2)) in enumerate(zip(Jp_list1, Jp_list2))
-                i2 = j2
-                for (i1, v) in nonzero_pairs(Jp1[:, j1])
-                    push!(rows, CartesianIndex(l, i1, i2))
-                    eqs[l, i1, i2, j1, j2] += v
+                m2′ = m2
+                for (m1′, v) in nonzero_pairs(Jp1[:, m1])
+                    push!(rows, CartesianIndex(l, m1′, m2′))
+                    eqs[l, m1′, m2′, m1, m2] += v
                 end
-                i1 = j1
-                for (i2, v) in nonzero_pairs(Jp2[:, j2])
-                    push!(rows, CartesianIndex(l, i1, i2))
-                    eqs[l, i1, i2, j1, j2] += v
+                m1′ = m1
+                for (m2′, v) in nonzero_pairs(Jp2[:, m2])
+                    push!(rows, CartesianIndex(l, m1′, m2′))
+                    eqs[l, m1′, m2′, m1, m2] += v
                 end
             end
         end
     end
     rows = unique!(sort!(rows))
-    reduced_eqs = convert(Array, view(eqs, rows, cols))
+    reduced_eqs = convert(Array, eqs[rows, cols])
 
     solutions = nullspace(reduced_eqs)
     N123 = size(solutions, 2)
@@ -86,17 +85,16 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irre
 
     CGC = SparseArray{T}(undef, d1, d2, d3, N123)
     for α = 1:N123
-        for (i, j1j2) in enumerate(cols)
+        for (i, m1m2) in enumerate(cols)
             #replacing d3 with end fails, because of a subtle sparsearray bug
-            CGC[j1j2, d3, α] = solutions[i, α]
+            CGC[m1m2, d3, α] = solutions[i, α]
         end
     end
 
     return CGC
 end
 
-
-function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I<: Irrep{N} where N
+function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I <: Irrep{N} where N
     d1, d2, d3, N123 = size(CGC)
     T = eltype(CGC)
     # we can probably discard the checks; this is an inner method
@@ -146,14 +144,11 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I<: Irrep{N} where N
                         eqs[i, j] = Jm3[m3, m3′]
                     end
                     @assert known[m3′] # TODO: remove
-                    for w1′ in keys(map1)
+                    for (w1′, m1′list) in map1
                         w2′ = w3′ .- w1′ .+ wshift
-                        haskey(map2, w2′) || continue
-                    # TODO: switch depending on length(map1) > or < length(map2)
-                    # for w2′ in keys(map2)
-                    #     w1′ = w3′ .- w2′ .+ wshift
-                    #     haskey(map1, w1′) || continue
-                        for m1′ in map1[w1′], m2′ in map2[w2′]
+                        m2′list = get(map2, w2′, _emptyindexlist)
+                        isempty(m2′list) && continue
+                        for m2′ in m2′list, m1′ in m1′list
                             CGCcoeff = CGC[m1′, m2′, m3′, α]
                             # apply Jm1 (annihilator on 1)
                             w1 = Base.setindex(w1′, w1′[l]-1, l)

@@ -7,7 +7,16 @@ struct SUNIrrep{N} <: TensorKit.Irrep{TensorKit.SU{N}}
 end
 SUNIrrep{N}(i::Vararg{Int64,N}) where N = SUNIrrep(i)
 
+function Base.show(io::IO, c::SUNIrrep{N}) where {N}
+    if get(io, :typeinfo, nothing) === typeof(c)
+        print(io, c.I)
+    else
+        print(io, "SUNIrrep{$N}", c.I)
+    end
+end
+
 Base.convert(::Type{SUNIrrep{N}}, i::Irrep) where N = SUNIrrep{N}(i.I)
+Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where N = SUNIrrep{N}(I)
 
 Base.isless(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where N = isless(Irrep(s1.I), Irrep(s2.I))
 
@@ -48,13 +57,11 @@ TensorKit.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where 
 const FCACHE = Vector{Any}()
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
                             d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where N
-
     key = (a, b, c, d, e, f)
     K = typeof(key)
     V = Array{Float64,4}
     if length(FCACHE) < N || !isassigned(FCACHE, N)
         resize!(FCACHE, max(length(FCACHE), N))
-        typeof((a,b,c,d,e,f))
         cache = Dict{K,V}()
         FCACHE[N] = cache
     else
@@ -73,25 +80,42 @@ function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
 
     (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) && return fill(0.0, N1, N2, N3, N4)
 
+    # computing first diagonal element
     A = fusiontensor(a,b,e)
-    B = fusiontensor(e,c,d)
+    B = fusiontensor(e,c,d)[:, :, 1, :]
     C = fusiontensor(b,c,f)
-    D = fusiontensor(a,f,d)
+    D = fusiontensor(a,f,d)[:, :, 1, :]
 
-    @tensor F[-1,-2,-3,-4] := conj(D[1,5,6,-4]) * conj(C[2,4,5,-3]) *
-                                A[1,2,3,-1] * B[3,4,6,-2]
-    Array(F)/dim(d)
+    @tensor F[-1,-2,-3,-4] := conj(D[1,5,-4]) * conj(C[2,4,5,-3]) *
+                                A[1,2,3,-1] * B[3,4,-2]
+    return Array(F)
 end
 
+const RCACHE = Vector{Any}()
 function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
+    key = (a, b, c)
+    K = typeof(key)
+    V = Array{Float64,2}
+    if length(RCACHE) < N || !isassigned(RCACHE, N)
+        resize!(RCACHE, max(length(RCACHE), N))
+        cache = Dict{K,V}()
+        RCACHE[N] = cache
+    else
+        cache::Dict{K,V} = RCACHE[N]
+    end
+    return get!(cache, key) do
+        _Rsymbol(a,b,c)
+    end
+end
+function _Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where N
     N1 = Nsymbol(a, b, c);
     N2 = Nsymbol(b, a, c);
 
     (N1 == 0 || N2 == 0) && return fill(0.0, N1, N2)
 
-    A = fusiontensor(a, b, c)
-    B = fusiontensor(b, a, c)
+    A = fusiontensor(a, b, c)[:, :, 1, :]
+    B = fusiontensor(b, a, c)[:, :, 1, :]
 
-    @tensor R[-1;-2] := conj(B[1, 2, 3, -2]) * A[2, 1, 3, -1]
-    Array(R)/dim(c)
+    @tensor R[-1;-2] := conj(B[1, 2, -2]) * A[2, 1, -1]
+    Array(R)
 end
