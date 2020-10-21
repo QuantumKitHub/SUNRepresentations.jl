@@ -11,6 +11,7 @@ TensorOperations.disable_cache() # avoids memory overflow during CI?
 using TupleTools
 using TupleTools: StaticLength
 using Base.Iterators: take, product
+using SparseArrayKit: SparseArray
 import LinearAlgebra
 
 const TK = TensorKit
@@ -36,25 +37,12 @@ function randsector(::Type{I}) where {I<:Sector}
     end
     return a
 end
-function hasfusiontensor(I::Type{<:Sector})
-    try
-        fusiontensor(one(I), one(I), one(I))
-        return true
-    catch e
-        if e isa MethodError
-            return false
-        else
-            rethrow(e)
-        end
-    end
-end
-
-sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
-# sectorlist = (SUNIrrep{3}, SUNIrrep{3} ⊠ SUNIrrep{3}, SUNIrrep{4})
 
 Ti = time()
+sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
 include("sectors.jl")
-# include("fusiontrees.jl")
+sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
+include("fusiontrees.jl")
 Tf = time()
 printstyled("Finished all tests in ",
             string(round((Tf-Ti)/60; sigdigits=3)),

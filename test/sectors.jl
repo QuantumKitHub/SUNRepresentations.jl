@@ -72,7 +72,7 @@ for I in sectorlist
                     else
                         f2 = Fsymbol(a,b,c,d,e,f)*dim(d)
                     end
-                    @test f1≈f2 atol=1e-12
+                    @test isapprox(f1, f2; atol = 1000*eps(), rtol = 1000*eps())
                 end
             end
         end
@@ -107,7 +107,7 @@ for I in sectorlist
                                                         Fsymbol(a,j,d,e,g,i)[β,μ,τ,σ]*
                                                         Fsymbol(b,c,d,i,j,h)[α,τ,ν,ρ]
                         end
-                        @test isapprox(p1, p2; atol=1000*eps())
+                        @test isapprox(p1, p2; atol = 1000*eps(), rtol = 1000*eps())
                     end
                 end
             end
@@ -126,7 +126,7 @@ for I in sectorlist
                                                 Rsymbol(c,f,d)[σ,ψ]*
                                                 Fsymbol(a,b,c,d,f,g)[δ,ψ,μ,ν]
                     end
-                    @test isapprox(p1, p2; atol=1000*eps())
+                    @test isapprox(p1, p2; atol = 1000*eps(), rtol = 1000*eps())
                 end
             end
         end
