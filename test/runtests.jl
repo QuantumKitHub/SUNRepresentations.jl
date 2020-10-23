@@ -1,15 +1,13 @@
 using Test
 using TestExtras
 using Random
-using SUNRepresentations
 using TensorKit
+using SUNRepresentations: SUNIrrep
 using Combinatorics
 using TensorKit
 using TensorKit: ProductSector, fusiontensor
 using TensorOperations
 TensorOperations.disable_cache() # avoids memory overflow during CI?
-using TupleTools
-using TupleTools: StaticLength
 using Base.Iterators: take, product
 using SparseArrayKit: SparseArray
 import LinearAlgebra

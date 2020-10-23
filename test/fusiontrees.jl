@@ -322,7 +322,7 @@ for I in sectorlist
                                         reshape(Af2′,(d2′,dc′))',
                                         (sz1′[1:end-1]..., sz2′[1:end-1]...))
                 end
-                @test isapprox(Ap, A2; atol = 1000*eps(), rtol = 1000*eps)
+                @test isapprox(Ap, A2; atol = 1000*eps(), rtol = 1000*eps())
             end
         end
     end

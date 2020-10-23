@@ -1,19 +1,14 @@
-using .TensorKit: dim, fusiontensor, Nsymbol, @tensor
+using .TensorKit: dim, fusiontensor, Nsymbol, @tensor, TensorKit
 
 export SUNIrrep
 
-struct SUNIrrep{N} <: TensorKit.Irrep{TensorKit.SU{N}}
+struct SUNIrrep{N} <: TensorKit.AbstractIrrep{TensorKit.SU{N}}
     I::NTuple{N,Int64}
 end
 SUNIrrep{N}(i::Vararg{Int64,N}) where N = SUNIrrep(i)
 
-function Base.show(io::IO, c::SUNIrrep{N}) where {N}
-    if get(io, :typeinfo, nothing) === typeof(c)
-        print(io, c.I)
-    else
-        print(io, "SUNIrrep{$N}", c.I)
-    end
-end
+# is this type piracy?
+Base.getindex(::TensorKit.IrrepTable, ::Type{TensorKit.SU{N}}) where {N} = SUNIrrep{N}
 
 Base.convert(::Type{SUNIrrep{N}}, i::Irrep) where N = SUNIrrep{N}(i.I)
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where N = SUNIrrep{N}(I)
