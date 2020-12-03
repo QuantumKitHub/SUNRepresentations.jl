@@ -37,7 +37,7 @@ TensorKit.dim(s::SUNIrrep) = dimension(Irrep(s.I))
 Base.conj(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(n->0, N))
 
-TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = TensorKit.DegenerateNonAbelian()
+TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where N = TensorKit.GenericFusion()
 Base.isreal(::Type{<:SUNIrrep}) = true
 TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic();
 

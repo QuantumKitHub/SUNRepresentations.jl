@@ -6,9 +6,8 @@ using RationalRoots
 using Requires
 using LinearAlgebra
 
-export Irrep, dimension, basis, weight, creation, annihilation, highest_weight
-export directproduct
-export GTPattern, GTPatternIterator, Zweight, Z2weight, Z2weightmap
+export Irrep, dimension, basis, weight, Zweight, creation, annihilation, highest_weight
+export directproduct, CGC
 
 struct Irrep{N} # Irrep of SU(N)
     I::NTuple{N,Int}
@@ -63,7 +62,6 @@ function directproduct(s1::Irrep{N}, s2::Irrep{N}) where {N}
 end
 
 include("clebschgordan.jl")
-
 
 function __init__()
     @require TensorKit="07d1fe3e-3e46-537d-9eac-e9e13d0d4cec" begin

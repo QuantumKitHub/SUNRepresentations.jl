@@ -59,9 +59,10 @@ function Base.show(io::IO, m::GTPattern)
 end
 function Base.isless(ma::GTPattern{N}, mb::GTPattern{N}) where N
     @inbounds for l in N:-1:1, k in 1:l
-        ma[k,l] > mb[k,l] && return false;
+        mb[k,l] > ma[k,l] && return true
+        mb[k,l] < ma[k,l] && return false
     end
-    return true
+    return false
 end
 Base.hash(m::GTPattern, h::UInt) where {N} = hash(m.data, hash(m.N, h))
 Base.:(==)(ma::GTPattern, mb::GTPattern) = ma.data == mb.data
@@ -105,11 +106,11 @@ function Base.iterate(iter::GTPatternIterator{1}, state = true)
 end
 function Base.iterate(iter::GTPatternIterator{N}) where {N}
     I = weight(iter.irrep)
-    iter1 = Iterators.product(ntuple(i->I[i+1]:I[i], Val(N-1))...)
+    iter1 = Iterators.product(reverse(ntuple(i->I[i+1]:I[i], Val(N-1)))...)
     next1 = Base.iterate(iter1)
     next1 === nothing && return nothing # should not happen
     v, state1 = next1
-    iter2 = GTPatternIterator(Irrep(v))
+    iter2 = GTPatternIterator(Irrep(reverse(v)))
     next2 = Base.iterate(iter2)
     next2 === nothing && return nothing # should not happen
     pat, state2 = next2
@@ -123,7 +124,7 @@ function Base.iterate(iter::GTPatternIterator{N}, state) where {N}
         next1 = Base.iterate(iter1, state1)
         next1 === nothing && return nothing
         v, state1 = next1
-        iter2 = GTPatternIterator(Irrep(v))
+        iter2 = GTPatternIterator(Irrep(reverse(v)))
         next2 = Base.iterate(iter2)
         next2 === nothing && return nothing # should not happen
     end

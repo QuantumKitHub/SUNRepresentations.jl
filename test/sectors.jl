@@ -5,7 +5,6 @@ for I in sectorlist
     ti = time()
     @testset "Sector $I: Basic properties" begin
         s = (randsector(I), randsector(I), randsector(I))
-        @test eval(Meta.parse(sprint(show,I))) == I
         @test eval(Meta.parse(sprint(show,s[1]))) == s[1]
         @test @constinferred(hash(s[1])) == hash(deepcopy(s[1]))
         @test @constinferred(one(s[1])) == @constinferred(one(I))
@@ -67,11 +66,7 @@ for I in sectorlist
                     Y2 = fusiontensor(a, f, d)
                     @tensor f1[-1,-2,-3,-4] := conj(Y2[a,f,d,-4])*conj(Y1[b,c,f,-3])*
                                                 X1[a,b,e,-1] * X2[e,c,d,-2]
-                    if FusionStyle(I) isa Union{Abelian,SimpleNonAbelian}
-                        f2 = fill(Fsymbol(a,b,c,d,e,f)*dim(d), (1,1,1,1))
-                    else
-                        f2 = Fsymbol(a,b,c,d,e,f)*dim(d)
-                    end
+                    f2 = Fsymbol(a,b,c,d,e,f)*dim(d)
                     @test isapprox(f1, f2; atol = 1000*eps(), rtol = 1000*eps())
                 end
             end

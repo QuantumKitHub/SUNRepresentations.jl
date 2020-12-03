@@ -10,6 +10,6 @@ TestExtras = "5ed8adda-3752-4e41-b88a-e8b09835ee3a"
 
 [compat]
 SparseArrayKit = "0.2"
-TensorKit = "0.8"
+TensorKit = "0.9"
 TensorOperations = "3"
 TestExtras = "0.1"

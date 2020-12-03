@@ -1,13 +1,8 @@
-function Z2weightmap(basis)
-    N = first(basis).N
-    # basis could be a GTPatternIterator{N}, but also a Vector{GTPattern{N}}
-    weights = Dict{NTuple{N-1,Int}, Vector{Int}}()
-    for (i, m) in enumerate(basis)
-        w = Z2weight(m)
-        push!(get!(weights, w, Int[]), i)
-    end
-    return weights
-end
+const TOL_NULLSPACE = 1e-13
+# tolerance for nullspace
+const TOL_GAUGE = 1e-11
+# tolerance for gaugefixing should probably be bigger than that with which nullspace was determined
+
 function weightmap(basis)
     N = first(basis).N
     # basis could be a GTPatternIterator{N}, but also a Vector{GTPattern{N}}
@@ -34,8 +29,8 @@ function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
     CGC
 end
 
-#gaugefix(C) = first(qrpos!(transpose(rref!(transpose(C)))))
-gaugefix(C) = C*conj.(first(qrpos!(rref!(permutedims(C)))))
+gaugefix!(C) = first(qrpos!(cref!(C, TOL_GAUGE)))
+# gaugefix(C) = C*conj.(first(qrpos!(rref!(permutedims(C)))))
 
 const _emptyindexlist = Vector{Int}()
 
@@ -76,12 +71,12 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where I <: Irr
     rows = unique!(sort!(rows))
     reduced_eqs = convert(Array, eqs[rows, cols])
 
-    solutions = nullspace(reduced_eqs)
+    solutions = nullspace(reduced_eqs; atol = TOL_NULLSPACE)
     N123 = size(solutions, 2)
 
     @assert N123 == directproduct(s1, s2)[s3]
 
-    solutions = gaugefix(solutions)
+    solutions = gaugefix!(solutions)
 
     CGC = SparseArray{T}(undef, d1, d2, d3, N123)
     for α = 1:N123
@@ -199,30 +194,31 @@ function qrpos!(C)
     return Q, R
 end
 
-function rref!(A::AbstractMatrix, ɛ = eltype(A) <: Union{Rational,Integer} ? 0 : eps(norm(A, Inf)))
+function cref!(A::AbstractMatrix,
+        ɛ = eltype(A) <: Union{Rational,Integer} ? 0 : 10*length(A)*eps(norm(A, Inf)))
     nr, nc = size(A)
     i = j = 1
     @inbounds while i <= nr && j <= nc
-        (m, mi) = findabsmax(view(A, i:nr, j))
-        mi = mi + i - 1
+        (m, mj) = findabsmax(view(A, i, j:nc))
+        mj = mj + j - 1
         if m <= ɛ
             if ɛ > 0
-                A[i:nr, j] .= zero(eltype(A))
+                A[i, j:nc] .= zero(eltype(A))
             end
-            j += 1
+            i += 1
         else
-            for k in j:nc
-                A[i, k], A[mi, k] = A[mi, k], A[i, k]
+            @simd for k in i:nr
+                A[k, j], A[k, mj] = A[k, mj], A[k, j]
             end
             d = A[i,j]
-            for k in j:nc
-                A[i, k] /= d
+            @simd for k in i:nr
+                A[k, j] /= d
             end
-            for k in 1:nr
-                if k != i
-                    d = A[k,j]
-                    for l = j:nc
-                        A[k,l] -= d*A[i,l]
+            for k in 1:nc
+                if k != j
+                    d = A[i, k]
+                    @simd for l = i:nr
+                        A[l, k] -= d*A[l, j]
                     end
                 end
             end

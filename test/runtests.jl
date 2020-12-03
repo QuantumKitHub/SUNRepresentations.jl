@@ -1,3 +1,4 @@
+
 using Test
 using TestExtras
 using Random
@@ -37,10 +38,19 @@ function randsector(::Type{I}) where {I<:Sector}
 end
 
 Ti = time()
+module GenericTests
+    using Test
+    using TestExtras
+    using Random
+    using SUNRepresentations
+    include("generic.jl")
+end
+
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
 include("sectors.jl")
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
 include("fusiontrees.jl")
+
 Tf = time()
 printstyled("Finished all tests in ",
             string(round((Tf-Ti)/60; sigdigits=3)),
