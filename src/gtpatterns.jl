@@ -89,7 +89,7 @@ end
 
 # GTPatternIterator: iterate over all GT-patterns associated to a given irrep
 struct GTPatternIterator{N}
-    irrep::Irrep{N}
+    irrep::SUNIrrep{N}
 end
 
 Base.IteratorSize(::Type{<:GTPatternIterator}) = Base.SizeUnknown()
@@ -110,7 +110,7 @@ function Base.iterate(iter::GTPatternIterator{N}) where {N}
     next1 = Base.iterate(iter1)
     next1 === nothing && return nothing # should not happen
     v, state1 = next1
-    iter2 = GTPatternIterator(Irrep(reverse(v)))
+    iter2 = GTPatternIterator(SUNIrrep(reverse(v)))
     next2 = Base.iterate(iter2)
     next2 === nothing && return nothing # should not happen
     pat, state2 = next2
@@ -124,7 +124,7 @@ function Base.iterate(iter::GTPatternIterator{N}, state) where {N}
         next1 = Base.iterate(iter1, state1)
         next1 === nothing && return nothing
         v, state1 = next1
-        iter2 = GTPatternIterator(Irrep(reverse(v)))
+        iter2 = GTPatternIterator(SUNIrrep(reverse(v)))
         next2 = Base.iterate(iter2)
         next2 === nothing && return nothing # should not happen
     end
@@ -133,17 +133,17 @@ function Base.iterate(iter::GTPatternIterator{N}, state) where {N}
     return newpat, (iter1, state1, iter2, state2)
 end
 
-highest_weight(irrep::Irrep{1}) = GTPattern{1}(weight(irrep))
-function highest_weight(irrep::Irrep{N}) where N
+highest_weight(irrep::SUNIrrep{1}) = GTPattern{1}(weight(irrep))
+function highest_weight(irrep::SUNIrrep{N}) where N
     I = weight(irrep)
-    d = highest_weight(Irrep(Base.front(I)))
+    d = highest_weight(SUNIrrep(Base.front(I)))
     return GTPattern{N}((I..., d.data...))
 end
 
-function creation(s::Irrep{N}) where N
-    dim = dimension(s)
+function creation(s::SUNIrrep{N}) where N
+    d = dim(s)
     table = Dict{GTPattern,Int}(m=>i for (i, m) in enumerate(basis(s)))
-    result = [SparseArray{RationalRoot{Int}}(undef, (dim, dim)) for i in 1:N-1];
+    result = [SparseArray{RationalRoot{Int}}(undef, (d, d)) for i in 1:N-1];
     @inbounds for (m, i) in table
         for l = 1:N-1, k = 1:l
             coef = -1//1;
@@ -167,4 +167,4 @@ function creation(s::Irrep{N}) where N
     return result
 end
 
-annihilation(s::Irrep) = [SparseArray(op') for op in creation(s)]
+annihilation(s::SUNIrrep) = [SparseArray(op') for op in creation(s)]

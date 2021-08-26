@@ -15,15 +15,15 @@ function weightmap(basis)
 end
 
 CGCCACHE = Dict{Any, Any}()
-CGC(s1::I, s2::I, s3::I) where {I<:Irrep} = CGC(Float64, s1, s2, s3)
-function CGC(T::Type{<:Real}, s1::Irrep{N}, s2::Irrep{N}, s3::Irrep{N}) where {N}
-    cachetype = Dict{Tuple{Irrep{N}, Irrep{N}, Irrep{N}}, SparseArray{T,4}}
+CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
+function CGC(T::Type{<:Real}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {N}
+    cachetype = Dict{Tuple{SUNIrrep{N}, SUNIrrep{N}, SUNIrrep{N}}, SparseArray{T,4}}
     cache = get!(CGCCACHE, (N, T), cachetype())::cachetype
     return get!(cache, (s1, s2, s3)) do
         _CGC(Float64, s1, s2, s3)
     end
 end
-function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:Irrep}
+function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
     CGC = highest_weight_CGC(T, s1, s2, s3);
     lower_weight_CGC!(CGC, s1, s2, s3)
     CGC
@@ -34,8 +34,8 @@ gaugefix!(C) = first(qrpos!(cref!(C, TOL_GAUGE)))
 
 const _emptyindexlist = Vector{Int}()
 
-function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where I <: Irrep
-    d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
+function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where I <: SUNIrrep
+    d1, d2, d3 = dim(s1), dim(s2), dim(s3)
     N = s1.N
 
     Jp_list1 = creation(s1)
@@ -89,11 +89,11 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where I <: Irr
     return CGC
 end
 
-function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I <: Irrep{N} where N
+function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where I <: SUNIrrep{N} where N
     d1, d2, d3, N123 = size(CGC)
     T = eltype(CGC)
     # we can probably discard the checks; this is an inner method
-    # d1, d2, d3 = dimension(s1), dimension(s2), dimension(s3)
+    # d1, d2, d3 = dim(s1), dim(s2), dim(s3)
     # @assert size(CGC,1) == d1 && size(CGC,2) == d2 && size(CGC,3) == d3
     # N123 = size(CGC,4);
 

@@ -3,24 +3,25 @@ module SUNRepresentations
 using TensorOperations
 using SparseArrayKit
 using RationalRoots
-using Requires
 using LinearAlgebra
+using TensorKit;
+using TensorKit: fusiontensor, Nsymbol
 
-export Irrep, dimension, basis, weight, Zweight, creation, annihilation, highest_weight
+export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight,dim
 export directproduct, CGC
 
-struct Irrep{N} # Irrep of SU(N)
+struct SUNIrrep{N} <: TensorKit.AbstractIrrep{TensorKit.SU{N}}
     I::NTuple{N,Int}
 end
-Irrep(args::Vararg{Int}) = Irrep(args)
-Base.isless(s1::Irrep{N}, s2::Irrep{N}) where N = isless(s1.I, s2.I)
+SUNIrrep(args::Vararg{Int}) = SUNIrrep(args)
+Base.isless(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where N = isless(s1.I, s2.I)
 
-_normalize(s::Irrep) = (I = weight(s); return Irrep(I .- I[end]))
+_normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
 
-Base.getproperty(s::Irrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(s, f)
-weight(s::Irrep) = getfield(s, :I)
+Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(s, f)
+weight(s::SUNIrrep) = getfield(s, :I)
 
-function dimension(s::Irrep)
+function TensorKit.dim(s::SUNIrrep)
     N = s.N
     I = weight(s)
     dim = 1//1
@@ -33,12 +34,12 @@ end
 
 include("gtpatterns.jl")
 
-basis(s::Irrep) = GTPatternIterator(s)
+basis(s::SUNIrrep) = GTPatternIterator(s)
 
 # direct product: return dictionary with new irreps as keys, outer multiplicities as value
-function directproduct(s1::Irrep{N}, s2::Irrep{N}) where {N}
-    dimension(s1) > dimension(s2) && return directproduct(s2, s1)
-    result = Dict{Irrep{N}, Int}()
+function directproduct(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
+    dim(s1) > dim(s2) && return directproduct(s2, s1)
+    result = Dict{SUNIrrep{N}, Int}()
     for m in basis(s1)
         t = weight(s2)
         bad_pattern = false
@@ -54,7 +55,7 @@ function directproduct(s1::Irrep{N}, s2::Irrep{N}) where {N}
             end
         end
         if !(bad_pattern)
-            s = _normalize(Irrep(t))
+            s = _normalize(SUNIrrep(t))
             result[s] = get(result, s, 0) + 1
         end
     end
@@ -62,12 +63,6 @@ function directproduct(s1::Irrep{N}, s2::Irrep{N}) where {N}
 end
 
 include("clebschgordan.jl")
-
-function __init__()
-    @require TensorKit="07d1fe3e-3e46-537d-9eac-e9e13d0d4cec" begin
-        include("sector.jl")
-    end
-end
-
+include("sector.jl")
 
 end

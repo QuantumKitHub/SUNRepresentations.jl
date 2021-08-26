@@ -1,20 +1,8 @@
-using .TensorKit: dim, fusiontensor, Nsymbol, @tensor, TensorKit
-
 export SUNIrrep
-
-struct SUNIrrep{N} <: TensorKit.AbstractIrrep{TensorKit.SU{N}}
-    I::NTuple{N,Int64}
-end
-SUNIrrep{N}(i::Vararg{Int64,N}) where N = SUNIrrep(i)
 
 # is this type piracy?
 Base.getindex(::TensorKit.IrrepTable, ::Type{TensorKit.SU{N}}) where {N} = SUNIrrep{N}
-
-Base.convert(::Type{SUNIrrep{N}}, i::Irrep) where N = SUNIrrep{N}(i.I)
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where N = SUNIrrep{N}(I)
-
-Base.isless(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where N = isless(Irrep(s1.I), Irrep(s2.I))
-
 Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where T<:SUNIrrep = Base.IsInfinite()
 
 function Base.iterate(::TensorKit.SectorValues{SUNIrrep{N}}, I = ntuple(zero, N)) where N
@@ -32,8 +20,6 @@ end
 
 Base.:(==)(s::SUNIrrep, t::SUNIrrep) = ==(s.I, t.I)
 Base.hash(s::SUNIrrep, h::UInt) = hash(s.I, h)
-
-TensorKit.dim(s::SUNIrrep) = dimension(Irrep(s.I))
 Base.conj(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
 Base.one(::Type{SUNIrrep{N}}) where N = SUNIrrep(ntuple(n->0, N))
 
@@ -42,12 +28,12 @@ Base.isreal(::Type{<:SUNIrrep}) = true
 TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic();
 
 TensorKit.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where N =
-    TensorKit.SectorSet{SUNIrrep{N}}( keys(directproduct(Irrep(s1.I), Irrep(s2.I))) )
+    TensorKit.SectorSet{SUNIrrep{N}}( keys(directproduct(s1,s2)) )
 TensorKit.Nsymbol(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where N =
-    get(directproduct(Irrep(s1.I), Irrep(s2.I)), Irrep(s3.I), 0)
+    get(directproduct(s1, s2), s3, 0)
 
 TensorKit.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where N =
-    CGC(Float64, Irrep(s1.I), Irrep(s2.I), Irrep(s3.I))
+    CGC(Float64, s1, s2, s3)
 
 const FCACHE = Vector{Any}()
 function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},

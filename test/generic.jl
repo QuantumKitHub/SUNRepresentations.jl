@@ -1,16 +1,16 @@
 println("------------------------------------")
-println("Generic Irrep tests")
+println("Generic SUNIrrep tests")
 println("------------------------------------")
-@timedtestset "Basic tests for Irrep{$N}:" for N = 2:5
-    I1 = Irrep(tuple(sort(rand(1:9, N); rev=true)..., 1))
-    I2 = Irrep(tuple(sort(rand(1:9, N); rev=true)..., 1))
-    @constinferred dimension(I1)
+@timedtestset "Basic tests for SUNIrrep{$N}:" for N = 2:5
+    I1 = SUNIrrep(tuple(sort(rand(1:9, N); rev=true)..., 1))
+    I2 = SUNIrrep(tuple(sort(rand(1:9, N); rev=true)..., 1))
+    @constinferred dim(I1)
     d = 0
     for (I, NI) in @constinferred directproduct(I1, I2)
-        d += NI*dimension(I)
+        d += NI*dim(I)
     end
-    @test d == dimension(I1)*dimension(I2)
-    if dimension(I2) < dimension(I1)
+    @test d == dim(I1)*dim(I2)
+    if dim(I2) < dim(I1)
         I1, I2 = I2, I1
     end
     b = @constinferred basis(I1)
