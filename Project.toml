@@ -15,6 +15,7 @@ RationalRoots = "0.1 - 0.2"
 SparseArrayKit = "0.2"
 TensorOperations = "3"
 julia = "1.4 - 1.7"
+TensorKit = "0.9"
 
 [extras]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
