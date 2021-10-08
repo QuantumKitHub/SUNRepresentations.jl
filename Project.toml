@@ -1,7 +1,7 @@
 name = "SUNRepresentations"
 uuid = "1a50b95c-7aac-476d-a9ce-2bfc675fc617"
 authors = ["Maarten Van Damme <Maarten.VanDamme@UGent.be> and Jutho Haegeman <jutho.haegeman@ugent.be>"]
-version = "0.1.2"
+version = "0.1.3"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -14,8 +14,8 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 RationalRoots = "0.1 - 0.2"
 SparseArrayKit = "0.2"
 TensorOperations = "3"
+TensorKit = "0.9 - 0.20,1"
 julia = "1.4 - 1.7"
-TensorKit = "0.9"
 
 [extras]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
