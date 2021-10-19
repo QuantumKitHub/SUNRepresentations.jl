@@ -6,6 +6,7 @@ using RationalRoots
 using LinearAlgebra
 using TensorKit;
 using TensorKit: fusiontensor, Nsymbol
+using LRUCache
 
 export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight,dim
 export directproduct, CGC
