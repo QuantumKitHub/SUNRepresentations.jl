@@ -14,11 +14,11 @@ function weightmap(basis)
     return weights
 end
 
-CGCCACHE = Dict{Any, Any}()
+CGCCACHE = LRU{Any, Any}(; maxsize=10^5)
 CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
 function CGC(T::Type{<:Real}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {N}
-    cachetype = Dict{Tuple{SUNIrrep{N}, SUNIrrep{N}, SUNIrrep{N}}, SparseArray{T,4}}
-    cache = get!(CGCCACHE, (N, T), cachetype())::cachetype
+    cachetype = LRU{Tuple{SUNIrrep{N}, SUNIrrep{N}, SUNIrrep{N}}, SparseArray{T,4}}
+    cache = get!(CGCCACHE, (N, T), cachetype(; maxsize = 10^5))::cachetype
     return get!(cache, (s1, s2, s3)) do
         _CGC(Float64, s1, s2, s3)
     end
