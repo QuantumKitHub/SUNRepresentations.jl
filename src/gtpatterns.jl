@@ -64,7 +64,7 @@ function Base.isless(ma::GTPattern{N}, mb::GTPattern{N}) where N
     end
     return false
 end
-Base.hash(m::GTPattern, h::UInt) where {N} = hash(m.data, hash(m.N, h))
+Base.hash(m::GTPattern, h::UInt) = hash(m.data, hash(m.N, h))
 Base.:(==)(ma::GTPattern, mb::GTPattern) = ma.data == mb.data
 rowsum(m::GTPattern, l) = l == 0 ? 0 : sum(m[k, l] for k = 1:l)
 
