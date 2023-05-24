@@ -89,41 +89,14 @@ for I in sectorlist
             end
         end
     end
-    @timedtestset "Sector $I: Pentagon equation" begin
+    @testset "Sector $I: Pentagon equation" begin
         for a in smallset(I), b in smallset(I), c in smallset(I), d in smallset(I)
-            for f in ⊗(a,b), h in ⊗(c,d)
-                for g in ⊗(f,c), i in ⊗(b,h)
-                    for e in intersect(⊗(g,d), ⊗(a,i))
-                        @tensor p1[λ,μ,ν,κ,ρ,σ] := Fsymbol(f,c,d,e,g,h)[λ,μ,ν,τ]*
-                                                    Fsymbol(a,b,h,e,f,i)[κ,τ,ρ,σ]
-                        p2 = zero(p1)
-                        for j in ⊗(b,c)
-                            @tensor p2[λ,μ,ν,κ,ρ,σ]  += Fsymbol(a,b,c,g,f,j)[κ,λ,α,β]*
-                                                        Fsymbol(a,j,d,e,g,i)[β,μ,τ,σ]*
-                                                        Fsymbol(b,c,d,i,j,h)[α,τ,ν,ρ]
-                        end
-                        @test isapprox(p1, p2; atol = 1000*eps(), rtol = 1000*eps())
-                    end
-                end
-            end
+            @test pentagon_equation(a, b, c, d; atol=1e-12, rtol=1e-12)
         end
     end
-    @timedtestset "Sector $I: Hexagon equation" begin
+    @testset "Sector $I: Hexagon equation" begin
         for a in smallset(I), b in smallset(I), c in smallset(I)
-            for e in ⊗(c,a), g in ⊗(c,b)
-                for d in intersect(⊗(e,b), ⊗(a,g))
-                    @tensor p1[α,β,μ,ν] := Rsymbol(c,a,e)[α,λ]*
-                                            Fsymbol(a,c,b,d,e,g)[λ,β,γ,ν]*
-                                            Rsymbol(b,c,g)[γ,μ]
-                    p2 = zero(p1)
-                    for f in ⊗(a,b)
-                        @tensor p2[α,β,μ,ν] += Fsymbol(c,a,b,d,e,f)[α,β,δ,σ]*
-                                                Rsymbol(c,f,d)[σ,ψ]*
-                                                Fsymbol(a,b,c,d,f,g)[δ,ψ,μ,ν]
-                    end
-                    @test isapprox(p1, p2; atol = 1000*eps(), rtol = 1000*eps())
-                end
-            end
+            @test hexagon_equation(a, b, c; atol=1e-12, rtol=1e-12)
         end
     end
     tf = time()

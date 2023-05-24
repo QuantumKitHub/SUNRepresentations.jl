@@ -4,7 +4,7 @@ using TensorOperations
 using SparseArrayKit
 using RationalRoots
 using LinearAlgebra
-using TensorKit;
+using TensorKit
 using TensorKit: fusiontensor, Nsymbol
 using LRUCache
 
