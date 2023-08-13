@@ -3,8 +3,8 @@ an example on how to calculate the clebsch gordon coefficients for some su3 irre
 =#
 using SUNRepresentations;
 
-a = SUNIrrep(2,1,0);
-b = SUNIrrep(2,1,0);
-c = SUNIrrep(2,1,0);
+a = SUNIrrep(2, 1, 0);
+b = SUNIrrep(2, 1, 0);
+c = SUNIrrep(2, 1, 0);
 
-CGC(a,b,c)
+CGC(a, b, c)
