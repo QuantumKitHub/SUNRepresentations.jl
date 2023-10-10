@@ -1,7 +1,7 @@
 name = "SUNRepresentations"
 uuid = "1a50b95c-7aac-476d-a9ce-2bfc675fc617"
 authors = ["Maarten Van Damme <Maarten.VanDamme@UGent.be> and Jutho Haegeman <jutho.haegeman@ugent.be>"]
-version = "0.1.5"
+version = "0.1.6"
 
 [deps]
 LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
@@ -14,7 +14,7 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 [compat]
 RationalRoots = "0.1 - 0.2"
 SparseArrayKit = "0.3"
-TensorKit = "0.11"
+TensorKit = "0.11, 0.12"
 TensorOperations = "4"
 LRUCache = "1"
 julia = "1.6"
