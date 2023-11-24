@@ -20,12 +20,15 @@ function CGC(T::Type{<:Real}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N})
     cachetype = LRU{Tuple{SUNIrrep{N},SUNIrrep{N},SUNIrrep{N}},SparseArray{T,4}}
     cache = get!(CGCCACHE, (N, T), cachetype(; maxsize=10^5))::cachetype
     return get!(cache, (s1, s2, s3)) do
-        return _CGC(Float64, s1, s2, s3)
+        return _CGC(T, s1, s2, s3)
     end
 end
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
-    CGC = highest_weight_CGC(T, s1, s2, s3)
-    lower_weight_CGC!(CGC, s1, s2, s3)
+    Δt = @elapsed begin
+        CGC = highest_weight_CGC(T, s1, s2, s3)
+        lower_weight_CGC!(CGC, s1, s2, s3)
+    end
+    @info "Computed CGC: $s1 ⊗ $s2 → $s3 ($Δt sec)"
     return CGC
 end
 
