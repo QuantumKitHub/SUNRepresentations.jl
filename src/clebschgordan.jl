@@ -23,10 +23,17 @@ function CGC(T::Type{<:Real}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N})
         return _CGC(T, s1, s2, s3)
     end
 end
+
+cache_filename(::Type{SUNIrrep{N}}) where {N} = joinpath(@get_scratch!("CGC"), "$N.jld2")
+
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
     Δt = @elapsed begin
-        CGC = highest_weight_CGC(T, s1, s2, s3)
-        lower_weight_CGC!(CGC, s1, s2, s3)
+        CGC = jldopen(cache_filename(I), "a+") do file
+            return get!(file, "$T/$s1 ⊗ $s2/$s3") do
+                _CGC = highest_weight_CGC(T, s1, s2, s3)
+                lower_weight_CGC!(_CGC, s1, s2, s3)
+            end
+        end
     end
     @info "Computed CGC: $s1 ⊗ $s2 → $s3 ($Δt sec)"
     return CGC
@@ -84,7 +91,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     CGC = SparseArray{T}(undef, d1, d2, d3, N123)
     for α in 1:N123
         for (i, m1m2) in enumerate(cols)
-            #replacing d3 with end fails, because of a subtle sparsearray bug
+            # replacing d3 with end fails, because of a subtle sparsearray bug
             CGC[m1m2, d3, α] = solutions[i, α]
         end
     end
