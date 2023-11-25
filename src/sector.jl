@@ -25,7 +25,7 @@ Base.one(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
 
 TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where {N} = TensorKit.GenericFusion()
 Base.isreal(::Type{<:SUNIrrep}) = true
-TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic();
+TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic()
 
 function TensorKit.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
     return TensorKit.SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))
