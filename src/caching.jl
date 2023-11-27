@@ -81,11 +81,11 @@ end
 
 Clear the CGC cache for ``SU(N)`` with eltype `T` from disk.
 """
-clear_disk_cache!(N, T=Float64) = clear_disk_cache(CGC_CACHES[(N, T)])
+clear_disk_cache!(N, T=Float64) = clear_disk_cache!(CGC_CACHES[(N, T)])
 function clear_disk_cache!(cache::CGCCache{T, N}) where {T,N}
     isfile(cache_path(N, T)) && rm(cache_path(N, T))
     isfile(offsets_path(N, T)) && rm(offsets_path(N, T))
-    cache.offsets = Dict{NTuple{3,SUNIrrep{N}},Tuple{UInt,UInt}}()
+    empty!(cache.offsets)
     return nothing
 end
 
@@ -133,14 +133,14 @@ function cache_info()
 end
 
 """
-    cache_populate(a_max, N, [T=Float64])
+    precompute_disk_cache(N, a_max, [T=Float64])
 
 Populate the CGC cache for ``SU(N)`` with eltype `T` with all CGCs with Dynkin labels up to
-``a_max``. It is recommended to sync the cache to disk after calling this function.
+``a_max``.
 
 See also: [`sync_disk_cache`](@ref)
 """
-function cache_populate(a_max::Int, N, T::Type{<:Number}=Float64)
+function precompute_disk_cache(N, a_max::Int=3, T::Type{<:Number}=Float64)
     all_dynkinlabels = CartesianIndices(ntuple(Returns(a_max + 1), N - 1))
     @sync begin
         for I₁ in all_dynkinlabels
@@ -154,5 +154,6 @@ function cache_populate(a_max::Int, N, T::Type{<:Number}=Float64)
             end
         end
     end
+    clear_ram_cache!(N, T; sync=true)
     return nothing
 end
