@@ -95,3 +95,5 @@ function _Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
     @tensor R[-1; -2] := conj(B[1, 2, -2]) * A[2, 1, -1]
     return Array(R)
 end
+
+dynkin_labels(I::SUNIrrep{N}) where {N} = ntuple(i -> I.I[i] - I.I[i + 1], N - 1)

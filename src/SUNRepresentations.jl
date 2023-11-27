@@ -8,7 +8,7 @@ using TensorKit
 using TensorKit: fusiontensor, Nsymbol
 using LRUCache
 using Scratch
-using JLD2
+using Serialization
 
 export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight, dim
 export directproduct, CGC
@@ -65,6 +65,7 @@ function directproduct(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
     return result
 end
 
+include("caching.jl")
 include("clebschgordan.jl")
 include("sector.jl")
 

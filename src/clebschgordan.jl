@@ -14,28 +14,22 @@ function weightmap(basis)
     return weights
 end
 
-CGCCACHE = LRU{Any,Any}(; maxsize=10^5)
+
 CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
-function CGC(T::Type{<:Real}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {N}
-    cachetype = LRU{Tuple{SUNIrrep{N},SUNIrrep{N},SUNIrrep{N}},SparseArray{T,4}}
-    cache = get!(CGCCACHE, (N, T), cachetype(; maxsize=10^5))::cachetype
+function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+    cache = get!(CGC_CACHES, (N,T), CGCCache{T,N}())
     return get!(cache, (s1, s2, s3)) do
         return _CGC(T, s1, s2, s3)
     end
 end
 
-cache_filename(::Type{SUNIrrep{N}}) where {N} = joinpath(@get_scratch!("CGC"), "$N.jld2")
-
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
     Δt = @elapsed begin
-        CGC = jldopen(cache_filename(I), "a+") do file
-            return get!(file, "$T/$s1 ⊗ $s2/$s3") do
-                _CGC = highest_weight_CGC(T, s1, s2, s3)
-                lower_weight_CGC!(_CGC, s1, s2, s3)
-            end
-        end
+        # if the key is not in the cache or the file, compute it
+        CGC = highest_weight_CGC(T, s1, s2, s3)
+        lower_weight_CGC!(CGC, s1, s2, s3)
     end
-    @info "Computed CGC: $s1 ⊗ $s2 → $s3 ($Δt sec)"
+    @info "Computed CGC: $(s1.I) ⊗ $(s2.I) → $(s3.I) ($Δt sec)"
     return CGC
 end
 
