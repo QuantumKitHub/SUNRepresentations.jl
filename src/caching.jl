@@ -27,7 +27,7 @@ function Base.get!(f::Function, cache::CGCCache{T, N}, key::NTuple{3,SUNIrrep{N}
             start, stop = cache.offsets[key]
             fn = cache_path(N, T)
             return open(fn, "r") do io
-                return load_disk_cache_entry(io, start, stop)
+                return load_disk_cache_entry(io, start, stop)::SparseArray{T,4}
             end
         else
             return f()
