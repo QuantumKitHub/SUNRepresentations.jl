@@ -5,7 +5,7 @@ using SparseArrayKit
 using RationalRoots
 using LinearAlgebra
 using TensorKit
-using TensorKit: fusiontensor, Nsymbol
+using TensorKit: SU, fusiontensor, Nsymbol
 using LRUCache
 using Scratch
 using Serialization
