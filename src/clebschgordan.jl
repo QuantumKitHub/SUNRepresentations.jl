@@ -24,12 +24,9 @@ function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where
 end
 
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
-    Δt = @elapsed begin
-        # if the key is not in the cache or the file, compute it
-        CGC = highest_weight_CGC(T, s1, s2, s3)
-        lower_weight_CGC!(CGC, s1, s2, s3)
-    end
-    @info "Computed CGC: $(s1.I) ⊗ $(s2.I) → $(s3.I) ($Δt sec)"
+    CGC = highest_weight_CGC(T, s1, s2, s3)
+    lower_weight_CGC!(CGC, s1, s2, s3)
+    @debug "Computed CGC: $(s1.I) ⊗ $(s2.I) → $(s3.I)"
     return CGC
 end
 
