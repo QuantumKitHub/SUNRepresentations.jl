@@ -1,15 +1,17 @@
 # Tests for caching of Clebsch-Gordan coefficients
+import SUNRepresentations: cache_info, precompute_disk_cache, cache_path, offsets_path, clear_disk_cache!
+
 for N in 3:5
-    SUNRepresentations.cache_info()
-    SUNRepresentations.precompute_disk_cache(N, 1)
-    @test isfile(SUNRepresentations.cache_path(N))
-    @test isfile(SUNRepresentations.offsets_path(N))
-    SUNRepresentations.clear_disk_cache!(N)
-    @test !isfile(SUNRepresentations.cache_path(N))
-    @test !isfile(SUNRepresentations.offsets_path(N))
+    cache_info()
+    precompute_disk_cache(N, 1)
+    @test isfile(cache_path(N))
+    @test isfile(offsets_path(N))
+    clear_disk_cache!(N)
+    @test !isfile(cache_path(N))
+    @test !isfile(offsets_path(N))
 end
 
 for N in 3:5
-    SUNRepresentations.precompute_disk_cache(N, 2)
+    precompute_disk_cache(N, 2)
 end
-SUNRepresentations.cache_info()
+cache_info()
