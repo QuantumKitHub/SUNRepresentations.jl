@@ -17,8 +17,8 @@ end
 const CGC_CACHES = LRU{Any,CGCCache}(; maxsize=10)
 
 const CGC_CACHE_PATH = @get_scratch!("CGC")
-offsets_path(N, T) = joinpath(CGC_CACHE_PATH, "$N-$T-offsets.bin")
-cache_path(N, T) = joinpath(CGC_CACHE_PATH, "$N-$T.bin")
+offsets_path(N, T=Float64) = joinpath(CGC_CACHE_PATH, "$N-$T-offsets.bin")
+cache_path(N, T=Float64) = joinpath(CGC_CACHE_PATH, "$N-$T.bin")
 
 function Base.get!(f::Function, cache::CGCCache{T, N}, key::NTuple{3,SUNIrrep{N}}) where {T, N}
     return get!(cache.data, key) do
