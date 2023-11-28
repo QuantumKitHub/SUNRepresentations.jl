@@ -141,7 +141,7 @@ Populate the CGC cache for ``SU(N)`` with eltype `T` with all CGCs with Dynkin l
 See also: [`sync_disk_cache`](@ref)
 """
 function precompute_disk_cache(N, a_max::Int=3, T::Type{<:Number}=Float64)
-    all_dynkinlabels = CartesianIndices(ntuple(Returns(a_max + 1), N - 1))
+    all_dynkinlabels = CartesianIndices(ntuple(_ -> (a_max + 1), N - 1))
     @sync begin
         for I₁ in all_dynkinlabels
             s1 = SUNIrrep(reverse(cumsum(I₁.I .- 1))..., 0)
