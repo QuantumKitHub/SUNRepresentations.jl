@@ -142,15 +142,13 @@ See also: [`sync_disk_cache`](@ref)
 """
 function precompute_disk_cache(N, a_max::Int=3, T::Type{<:Number}=Float64)
     all_dynkinlabels = CartesianIndices(ntuple(_ -> (a_max + 1), N - 1))
-    @sync begin
-        for I₁ in all_dynkinlabels
-            s1 = SUNIrrep(reverse(cumsum(I₁.I .- 1))..., 0)
-            for I₂ in all_dynkinlabels
-                s2 = SUNIrrep(reverse(cumsum(I₂.I .- 1))..., 0)
-                for s3 in s1 ⊗ s2
-                    maximum(dynkin_labels(s3)) <= a_max &&
-                        Threads.@spawn CGC(T, s1, s2, s3)
-                end
+    Threads.@threads :dynamic for (I₁, I₂) in collect(Iterators.product(all_dynkinlabels, all_dynkinlabels))
+        s1 = SUNIrrep(reverse(cumsum(I₁.I .- 1))..., 0)
+        s2 = SUNIrrep(reverse(cumsum(I₂.I .- 1))..., 0)
+        for s3 in s1 ⊗ s2
+            if maximum(dynkin_labels(s3)) <= a_max
+                Δt = @elapsed CGC(T, s1, s2, s3)
+                @info "$(Threads.threadid()) computed $(s1.I) ⊗ $(s2.I) → $(s3.I) ($Δt sec)"
             end
         end
     end
