@@ -1,15 +1,26 @@
-struct CGCCache{T,N}
-    data::LRU{NTuple{3,SUNIrrep{N}},SparseArray{T,4}} # cached CGC tensors
-    offsets::Dict{NTuple{3,SUNIrrep{N}},Tuple{UInt,UInt}} # existing hash to file positions
+const CGCKEY{N} = NTuple{3,SUNIrrep{N}}
+_string(key::CGCKEY) = "$(key[1].I) ⊗ $(key[2].I) → $(key[3].I)"
 
-    function CGCCache{T,N}(; maxsize=10^5) where {T,N}
-        data = LRU{NTuple{3,SUNIrrep{N}},SparseArray{T,4}}(; maxsize)
-        offsets = if isfile(offsets_path(N, T))
-            deserialize(offsets_path(N, T))
-        else
-            Dict{NTuple{3,SUNIrrep{N}},Tuple{UInt,UInt}}()
+struct CGCCache{N,T}
+    data::LRU{CGCKEY{N},SparseArray{T,4}} # RAM cached CGC tensors
+    filelock::ReentrantLock # lock for writing to disk
+    function CGCCache{N,T}(; maxsize=10^5) where {N,T}
+        data = LRU{CGCKEY{N},SparseArray{T,4}}(; maxsize)
+        return new{N,T}(data, ReentrantLock())
+    end
+end
+
+function Base.show(io::IO, cache::CGCCache{N,T}) where {N,T}
+    println(io, typeof(cache))
+    println(io, "    ", LRUCache.cache_info(cache.data))
+    fn = cache_path(N, T)
+    if isfile(fn)
+        println(io, "    ", filesize(fn), " bytes on disk")
+        jldopen(fn, "r") do file
+            return println(io, "    $(length(keys(file))) entries in disk cache")
         end
-        return new{T,N}(data, offsets)
+    else
+        println(io, "    no disk cache")
     end
 end
 
@@ -17,119 +28,40 @@ end
 const CGC_CACHES = LRU{Any,CGCCache}(; maxsize=10)
 
 const CGC_CACHE_PATH = @get_scratch!("CGC")
-offsets_path(N, T=Float64) = joinpath(CGC_CACHE_PATH, "$N-$T-offsets.bin")
-cache_path(N, T=Float64) = joinpath(CGC_CACHE_PATH, "$N-$T.bin")
+cache_path(N, T=Float64) = joinpath(CGC_CACHE_PATH, "$(N)_$(T).jld2")
 
-function Base.get!(f::Function, cache::CGCCache{T, N}, key::NTuple{3,SUNIrrep{N}}) where {T, N}
+function Base.get!(f::Function, cache::CGCCache{N,T},
+                   key::CGCKEY{N})::SparseArray{T,4} where {T,N}
     return get!(cache.data, key) do
         # if the key is not in the cache, check if it is in the file
-        if haskey(cache.offsets, key)
-            start, stop = cache.offsets[key]
-            fn = cache_path(N, T)
-            return open(fn, "r") do io
-                return load_disk_cache_entry(io, start, stop)::SparseArray{T,4}
+        key_str = _string(key)
+        fn = cache_path(N, T)
+        lock(cache.filelock)
+        try
+            file = jldopen(fn, "a+")
+            if haskey(file, key_str)
+                CGC = file[key_str]::SparseArray{T,4}
+                close(file)
+                @debug "loaded CGC from disk: $key_str"
+                return CGC
             end
-        else
-            return f()
+            close(file)
+        finally
+            unlock(cache.filelock)
         end
-    end
-end
 
-function load_disk_cache_entry(io::IO, start::UInt, stop::UInt)
-    seek(io, start)
-    buf = read(io, stop - start)
-    return deserialize(IOBuffer(buf))
-end
-
-function store_disk_cache_entry(io::IO, start::UInt, val)
-    seek(io, start)
-    buf = IOBuffer()
-    serialize(buf, val)
-    posbuf = UInt(position(buf))
-    write(io, buf.data[1:posbuf])
-    return UInt(position(io))
-end
-
-"""
-    sync_disk_cache(N, [T=Float64])
-
-Sync the CGC cache for ``SU(N)`` with eltype `T` to disk.
-
-!!! warning
-    This function is not thread-safe. In particular, it is not safe to call this function while other threads are accessing the cache.
-"""
-sync_disk_cache(N, T=Float64) = sync_disk_cache(CGC_CACHES[(N, T)])
-function sync_disk_cache(cache::CGCCache{T, N}) where {T,N}
-    # store data
-    open(cache_path(N, T), "a+") do fid
-        seekend(fid)
-        for key in setdiff(keys(cache.data), keys(cache.offsets))
-            start = UInt(position(fid))
-            stop = store_disk_cache_entry(fid, start, cache.data[key])
-            cache.offsets[key] = (start, stop)
-        end
-    end
-    
-    # store offsets
-    open(offsets_path(N, T), "w") do fid
-        serialize(fid, cache.offsets)
-    end
-end
-
-"""
-    clear_disk_cache(N, T)
-
-Clear the CGC cache for ``SU(N)`` with eltype `T` from disk.
-"""
-clear_disk_cache!(N, T=Float64) = clear_disk_cache!(CGC_CACHES[(N, T)])
-function clear_disk_cache!(cache::CGCCache{T, N}) where {T,N}
-    isfile(cache_path(N, T)) && rm(cache_path(N, T))
-    isfile(offsets_path(N, T)) && rm(offsets_path(N, T))
-    empty!(cache.offsets)
-    return nothing
-end
-
-"""
-    clear_ram_cache!(N, T; sync=true)
-
-Clear the CGC cache for ``SU(N)`` with eltype `T` from RAM. If `sync` is `true`, the cache will first be synced to disk.
-"""
-clear_ram_cache!(N, T=Float64; sync::Bool=true) = clear_ram_cache!(CGC_CACHES[(N, T)]; sync)
-function clear_ram_cache!(cache::CGCCache; sync::Bool=true)
-    sync && sync_disk_cache(cache)
-    empty!(cache.data)
-    return nothing
-end
-
-"""
-    cache_info()
-
-Print information about the CGC caches.
-"""
-function cache_info()
-    # print RAM caches
-    if isempty(CGC_CACHES)
-        @info "CGC cache is empty"
-    else
-        for ((N, T), val) in CGC_CACHES
-            sz = Base.summarysize(val) / 1024^2
-            @info "CGC cache for SU($N) with eltype $T contains $(val.data.currentsize) / $(val.data.maxsize) CGCs ($sz Mib)"
-        end
-    end
-    
-    # print disk caches
-    if !isdir(CGC_CACHE_PATH)
-        @info "CGC cache directory $(CGC_CACHE_PATH) is empty"
-    else
-        for fn in readdir(CGC_CACHE_PATH)
-            if endswith(fn, ".bin") && !endswith(fn, "offsets.bin")
-                sz = filesize(joinpath(CGC_CACHE_PATH, fn)) / 1024^2
-                num = length(deserialize(joinpath(CGC_CACHE_PATH, fn[1:end-4] * "-offsets.bin")))
-                @info "CGC cache file $fn contains $num CGCs ($sz Mib)"
+        # if the key is not in the file, compute it
+        CGC = f()
+        lock(cache.filelock) do
+            jldopen(fn, "a+") do file
+                file[key_str] = CGC
+                @debug "wrote CGC to disk: $key_str"
+                return nothing
             end
         end
+
+        return CGC
     end
-    return nothing
 end
 
 """
@@ -137,21 +69,91 @@ end
 
 Populate the CGC cache for ``SU(N)`` with eltype `T` with all CGCs with Dynkin labels up to
 ``a_max``.
-
-See also: [`sync_disk_cache`](@ref)
 """
 function precompute_disk_cache(N, a_max::Int=3, T::Type{<:Number}=Float64)
     all_dynkinlabels = CartesianIndices(ntuple(_ -> (a_max + 1), N - 1))
-    Threads.@threads :dynamic for (I₁, I₂) in collect(Iterators.product(all_dynkinlabels, all_dynkinlabels))
-        s1 = SUNIrrep(reverse(cumsum(I₁.I .- 1))..., 0)
-        s2 = SUNIrrep(reverse(cumsum(I₂.I .- 1))..., 0)
-        for s3 in s1 ⊗ s2
-            if maximum(dynkin_labels(s3)) <= a_max
-                Δt = @elapsed CGC(T, s1, s2, s3)
-                @info "$(Threads.threadid()) computed $(s1.I) ⊗ $(s2.I) → $(s3.I) ($Δt sec)"
+    all_irreps = [SUNIrrep(reverse(cumsum(I.I .- 1))..., 0) for I in all_dynkinlabels]
+    l = ReentrantLock()
+    jldopen(cache_path(N, T), "a+") do file
+        key_list = Set(keys(file))
+        @sync for s1 in all_irreps, s2 in all_irreps
+            for s3 in Iterators.filter(s -> maximum(dynkin_labels(s)) < a_max, s1 ⊗ s2)
+                key_str = _string((s1, s2, s3))
+                if key_str ∉ key_list
+                    Threads.@spawn begin
+                        cgc = _CGC(T, s1, s2, s3)
+                        lock(l) do
+                            file[key_str] = cgc
+                            @info "Wrote CGC to disk: $key_str"
+                        end
+                    end
+                end
             end
         end
+        return nothing
     end
-    clear_ram_cache!(N, T; sync=true)
+    cache_info()
+    return nothing
+end
+
+"""
+    clear_disk_cache!(N, [T=Float64])
+
+Remove the CGC cache for ``SU(N)`` with eltype `T` from disk.
+"""
+function clear_disk_cache!(N, T=Float64)
+    fn = cache_path(N, T)
+    if isfile(fn)
+        @info "Removing disk cache SU($N): $T"
+        rm(fn)
+    end
+    return nothing
+end
+function clear_disk_cache!()
+    for file in readdir(CGC_CACHE_PATH)
+        if endswith(file, ".jld2")
+            N, T = _parse_filename(file)
+            @info "Removing disk cache SU($N): $T"
+            rm(cache_path(N, T))
+        end
+    end
+    return nothing
+end
+
+_parse_filename(fn) = split(splitext(basename(fn))[1], "_")
+
+"""
+    cache_info()
+
+Print information about the CGC cache.
+"""
+function cache_info()
+    println("CGC RAM cache info:")
+    println("===================")
+    for ((N, T), cache) in CGC_CACHES
+        println("SU($N) - $T")
+        println("------------------------")
+        println(cache)
+        println()
+    end
+    println()
+    println("CGC disk cache info:")
+    println("====================")
+    cache_dir = CGC_CACHE_PATH
+    for file in readdir(cache_dir)
+        if endswith(file, ".jld2")
+            N, T = _parse_filename(file)
+
+            fsz = filesize(joinpath(cache_dir, file))
+            nentries = jldopen(joinpath(cache_dir, file), "r") do file
+                return length(keys(file))
+            end
+
+            println("SU($N) - $T")
+            println("    * ", nentries, " entries")
+            println("    * ", Base.format_bytes(fsz))
+            println()
+        end
+    end
     return nothing
 end

@@ -14,10 +14,9 @@ function weightmap(basis)
     return weights
 end
 
-
 CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
 function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
-    cache = get!(CGC_CACHES, (N,T), CGCCache{T,N}())::CGCCache{T,N}
+    cache = get!(() -> CGCCache{N,T}(), CGC_CACHES, (N, T))::CGCCache{N,T}
     return get!(cache, (s1, s2, s3)) do
         return _CGC(T, s1, s2, s3)
     end
@@ -71,7 +70,6 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     end
     rows = unique!(sort!(rows))
     reduced_eqs = convert(Array, eqs[rows, cols])
-
     solutions = _nullspace(reduced_eqs; atol=TOL_NULLSPACE)
     N123 = size(solutions, 2)
 
