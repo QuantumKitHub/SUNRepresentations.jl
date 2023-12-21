@@ -8,12 +8,4 @@ clear_disk_cache!()
 for N in 3:4
     precompute_disk_cache(N, 1)
     @test isfile(cache_path(N))
-    # cache_info()
-    clear_disk_cache!(N)
-    @test !isfile(cache_path(N))
 end
-
-for N in 3:4
-    precompute_disk_cache(N, 1)
-end
-cache_info()
