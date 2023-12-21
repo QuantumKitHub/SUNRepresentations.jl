@@ -26,8 +26,16 @@ Irrep[SU{3}]((2, 1, 0)) ⊗ Irrep[SU{3}]((2, 1, 0)) = SUNIrrep{3}[(0, 0, 0), (4,
 
 ## Caching Clebsch-Gordan coefficients
 
-Because the computation of Clebsch-Gordan coefficients can be quite expensive, it is
-recommended to cache them. By default, the coefficients are only cached in memory, and will
+Because the computation of Clebsch-Gordan coefficients can be quite expensive, they are
+cached to a file on disk, while a limited amount is kept in the RAM. It is possible to
+precompute a set of Clebsch-Gordan coefficients and store them on disk, so that they can be
+reused later. This is especially useful when computing Clebsch-Gordan coefficients in
+parallel. This can be done using the `SUNRepresentations.precompute_disk_cache(N, a_max)`
+function.
+
+
+
+ By default, the coefficients are only cached in memory, and will
 be lost when the Julia session is closed. In order to cache the coefficients that are
 currently stored in memory to disk, you can call `SUNRepresentations.sync_disk_cache(N)`.
 This will create a scratchfile, which will then automatically be used the next time you want
@@ -37,17 +45,21 @@ Clebsch-Gordan coefficients (in parallel) and store them on disk. This can be do
 benefit that the coefficients can be computed in parallel.
 
 ```julia-repl
-julia> SUNRepresentations.precompute_disk_cache(3, 2) # precompute all coefficients for SU(3) with a_max = 2
-[ Info: Computed CGC: (0, 0, 0) ⊗ (0, 0, 0) → (0, 0, 0) (0.016749002 sec)
-[ Info: Computed CGC: (1, 1, 0) ⊗ (1, 0, 0) → (0, 0, 0) (0.111028889 sec)
-    ⋮
-[ Info: Computed CGC: (1, 1, 0) ⊗ (1, 1, 0) → (2, 2, 0) (0.38386373 sec)
-[ Info: Computed CGC: (1, 0, 0) ⊗ (1, 1, 0) → (0, 0, 0) (9.1176e-5 sec)
+julia> SUNRepresentations.precompute_disk_cache(3, 2)
+CGC RAM cache info:
+===================
 
-julia> SUNRepresentations.cache_info()
-[ Info: CGC cache for SU(3) with eltype Float64 contains 0 / 100000 CGCs (1.4225616455078125 Mib)
-[ Info: CGC cache file 3-Float64.bin contains 165 CGCs (0.3374509811401367 Mib)
+CGC disk cache info:
+====================
+SU(3) - Float64
+    * 65 entries
+    * 135.191 KiB
 ```
+
+They are stored at `SUNRepresentations.cache_path(N)` and can be removed using
+`SUNRepresentations.clear_disk_cache([N])`. To display information, use
+`SUNRepresentations.cache_info()`.
 
 TODO:
 * Documentation
+* Naming
