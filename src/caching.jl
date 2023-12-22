@@ -54,7 +54,11 @@ function Base.get!(f::Function, cache::CGCCache{N,T},
         CGC = f()
         lock(cache.filelock) do
             jldopen(fn, "a+") do file
-                file[key_str] = CGC
+                if !haskey(file, key_str)
+                    file[key_str] = CGC
+                else
+                    @assert isapprox(file[key_str], CGC; atol=eps(T)^3/4)
+                end
                 @debug "wrote CGC to disk: $key_str"
                 return nothing
             end
