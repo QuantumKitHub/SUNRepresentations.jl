@@ -10,6 +10,8 @@ using LRUCache
 
 export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight, dim
 export directproduct, CGC
+export dynkin_label, congruency, index
+export cartanmatrix, inverse_cartanmatrix, dimname
 
 struct SUNIrrep{N} <: TensorKit.AbstractIrrep{TensorKit.SU{N}}
     I::NTuple{N,Int}
@@ -21,6 +23,9 @@ _normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
 
 Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(s, f)
 weight(s::SUNIrrep) = getfield(s, :I)
+
+Base.string(s::SUNIrrep) = dimname(s)
+Base.show(io::IO, ::MIME"text/plain", s::SUNIrrep) = print(io, "SUNIrrep{$(s.N)}($s)")
 
 function TensorKit.dim(s::SUNIrrep)
     N = s.N
@@ -65,5 +70,6 @@ end
 
 include("clebschgordan.jl")
 include("sector.jl")
+include("naming.jl")
 
 end

@@ -25,4 +25,33 @@ println("------------------------------------")
     for k in 1:N
         @test parse(Int, s[17 + 2 * k]) == weight(I1)[k]
     end
+    
+    @test inv(cartanmatrix(I1)) ≈ inverse_cartanmatrix(I1)
+end
+
+@timedtestset "Properties of SUNIrrep{2}:" begin
+    indices = [1, 4, 10, 20, 35, 56, 84, 120, 165, 220]
+    for i in 1:10
+        I = SUNIrrep(i, 0)
+        @test dynkin_label(I) == (i,)
+        @test congruency(I) == i % 2
+        @test index(I) == indices[i]
+        @test dimname(I) == "$(dim(I))"
+    end
+end
+
+@timedtestset "Properties of SUNIrrep{3}:" begin
+    
+    
+    
+    irreps = (SUNIrrep(1, 0, 0), SUNIrrep(2, 0, 0), SUNIrrep(2, 1, 0), SUNIrrep(3, 0, 0),
+              SUNIrrep(3, 1, 0), SUNIrrep(4, 0, 0))
+    dims = (3, 6, 8, 10, 15, 15)
+    indices = (1, 5, 6, 15, 20, 35)
+    names = ("3", "6", "8", "10", "15", "15′")
+    for (i, I) in enumerate(irreps)
+        @test dynkin_label(I) == (I.I[1] - I.I[2], I.I[2] - I.I[3])
+        @test congruency(I) == (I.I[1] + I.I[2] + I.I[3]) % 3
+        @test index(I) == indices[i]
+    end
 end
