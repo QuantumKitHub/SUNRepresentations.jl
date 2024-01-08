@@ -1,3 +1,38 @@
+const DISPLAY_MODES = ("weight", "dimension", "dynkin")
+display_mode() = @load_preference("display_mode", "weight")
+function display_mode(mode::AbstractString)
+    mode in DISPLAY_MODES ||
+        throw(ArgumentError("Invalid display mode $mode, needs to be one of $(DISPLAY_MODES)."))
+    oldmode = display_mode()
+    @set_preferences!("display_mode" => mode)
+    return oldmode
+end
+
+function Base.print(io::IO, s::SUNIrrep)
+    display_mode() == "weight" ? print(io, weightname(s)) :
+        display_mode() == "dynkin" ? print(io, dynkinname(s)) :
+        display_mode() == "dimension" ? print(io, dimname(s)) :
+        error("Invalid display mode $(display_mode()).")
+end
+function Base.show(io::IO, s::SUNIrrep)
+    if get(io, :typeinfo, nothing) === typeof(s)
+        print(io, s)
+    else
+        if display_mode() == "dimension"
+            # special case to add "" around the dimension
+            print(io, TensorKit.type_repr(typeof(s)), "(\"", dimname(s), "\")")
+        else
+            print(io, TensorKit.type_repr(typeof(s)), "(", s, ")")
+        end
+    end
+    return nothing
+end
+
+# Dynkin labels
+# -------------
+
+dynkinname(I::SUNIrrep) = "[$(join(dynkin_label(I), ", "))]"
+
 """
     dynkin_label(I::SUNIrrep)
 
@@ -7,12 +42,15 @@ number of boxes in the `i`th row of the Young Tableau.
 """
 dynkin_label(I::SUNIrrep{N}) where {N} = Z2weight(highest_weight(I))
 
-function from_dynkin_label(a::NTuple{N,Int}) where {N}
-    w = reverse(cumsum(reverse(a)))
-    return SUNIrrep(w..., 0)
-end
+# Weight names
+# ------------
 
-max_dynkin_label(::Type{<:SUNIrrep}) = 3
+weightname(I::SUNIrrep) = string(weight(I))
+
+# Dimensional names
+# -----------------
+
+max_dynkin_label(::Type{<:SUNIrrep}) = 5
 
 """
     congruency(I::SUNIrrep)
@@ -44,7 +82,7 @@ end
 """
     index(I::SUNIrrep)
 
-Returns the index of the SU(N) irrep `I`
+Returns the index of the SU(N) irrep `I`.
 """
 function index(s::SUNIrrep)
     N = s.N
@@ -57,14 +95,40 @@ end
 
 function irreps_by_dim(::Type{SUNIrrep{N}}, d::Int, maxdynkin::Int=3) where {N}
     irreps = SUNIrrep{N}[]
-    
-    all_dynkin = CartesianIndices(ntuple(k -> maxdynkin + 1, N-1))
+
+    all_dynkin = CartesianIndices(ntuple(k -> maxdynkin + 1, N - 1))
     for a in all_dynkin
-        I = from_dynkin_label(a.I .- 1)
+        I = SUNIrrep(collect(a.I .- 1))
         dim(I) == d && push!(irreps, I)
     end
+    # @show index.(irreps) congruency.(irreps) dynkin_label.(irreps)
+
+    return sort!(irreps; by=x -> (index(x), congruency(x), dynkin_label(x)))
+end
+
+function find_dimname(s::SUNIrrep{N}) where {N}
+    a = dynkin_label(s)
+    max_dynkin_label = N > 4 ? maximum(a) : maximum(a) + 1
+    d = dim(s)
+
+    same_dim_irreps = irreps_by_dim(typeof(s), d, max_dynkin_label)
+
+    if length(same_dim_irreps) > 1
+        ids = index.(same_dim_irreps)
+        numprimes = findfirst(==(index(s)), unique!(ids)) - 1
+        if congruency(s) == 0 || (iseven(N) && congruency(s) == N ÷ 2)
+            conjugate = s != first(filter(x -> index(x) == index(s), same_dim_irreps))
+        else
+            conjugate = congruency(s) > congruency(dual(s))
+        end
+    elseif length(same_dim_irreps) == 1
+        numprimes = 0
+        conjugate = false
+    else
+        error("this should never happen")
+    end
     
-    return sort!(irreps; by=x -> (index(x), congruency(x), dynkin_label(x)...))
+    return d, numprimes, conjugate
 end
 
 """
@@ -91,48 +155,71 @@ same, the one with the lowest Dynkin label, compared lexicographically, is chose
 """
 function dimname(s::SUNIrrep{N}) where {N}
     # for some reason in SU{3}, the 6-dimensional irreps have switched duality
-    s == SUNIrrep(2, 0, 0) && return "6"
-    s == SUNIrrep(2, 2, 0) && return "6†"
+    s == SUNIrrep(2, 0, 0) && return generate_dimname(6, 0, false)
+    s == SUNIrrep(2, 2, 0) && return generate_dimname(6, 0, true)
     
-    a = dynkin_label(s)
-    max_dynkin_label = N > 4 ? maximum(a) : maximum(a) + 1
-    d = dim(s)
-    
-    same_dim_irreps = irreps_by_dim(typeof(s), d, max_dynkin_label)
-    
-    if length(same_dim_irreps) > 1
-        ids = index.(same_dim_irreps)
-        numprimes = findfirst(==(index(s)), unique!(ids)) - 1
-        if congruency(s) == 0
-            conjugate = s != first(filter(x -> index(x)==(index(s)), same_dim_irreps))
-        else
-            conjugate = congruency(s) > congruency(dual(s))
-        end
-    else
-        numprimes = 0
-        conjugate = false
-    end
-
-    name = conjugate ? string(d) * str_dual : string(d)
-    return name * repeat(str_prime, numprimes)
+    d, numprimes, conjugate = find_dimname(s)
+    return generate_dimname(d, numprimes, conjugate)
 end
 
 const str_dual = "†"
 const str_prime = "′"
 
-function SUNIrrep{N}(name::AbstractString) where {N}
-    d = parse(Int, filter(isdigit, name))
-    numprimes = count(x -> x == str_prime, name)
-    conjugate = contains(name, str_dual)
+const prime_chars = ('\U2032', '\U2033', '\U2034', '\U2057')
+const dual_char = '⁺'
 
-    max_dynkin = max_dynkin_label(SUNIrrep{N})
+function count_primes(name::Union{AbstractString,Vector{Char}})
+    return sum(((i, c),) -> i * count(==(c), name), enumerate(prime_chars))
+end
+is_conjugate(name::AbstractString) = endswith(name, dual_char)
 
-    same_dim_irreps = irreps_by_dim(SUNIrrep{N}, d, max_dynkin)
-    isempty(same_dim_irreps) &&
-        throw(ArgumentError("Either the name $name is not valid for SU{$N} or the irrep has at least one Dynkin label higher than $max_dynkin. You can expand the search space with `SUNRepresentations.max_dynkin_label(SUNIrrep{$N}) = a`."))
+"""
+    parse_dimname(name::AbstractString) -> (Int, Int, Bool)
 
-    id = unique!(index.(same_dim_irreps))[numprimes + 1]
-    same_id_irreps = filter(x -> index(x) == id, same_dim_irreps)
+Parses a dimensional name into a dimension, a number of primes and a conjugate flag.
 
-    return conjugate ? last(same_id_irreps) : first(same_id_irreps)
+See also: [`SUNRepresentations.generate_dimname`](@ref)
+"""
+function parse_dimname(name::AbstractString)
+    name_chars = collect(name)
+    # parse dimension part
+    length(name_chars) > 0 || throw(ArgumentError("Cannot parse empty names."))
+
+    n_digits′ = findfirst(!isdigit, name_chars)
+    n_digits = isnothing(n_digits′) ? length(name_chars) : n_digits′ - 1
+
+    n_digits > 0 || throw(ArgumentError("The name $name is not valid."))
+    n_digits == length(name) || !any(isdigit, name_chars[(n_digits + 1):end]) ||
+        throw(ArgumentError("The name $name is not valid."))
+
+    d = parse(Int, name[1:n_digits])
+
+    # parse conjugate part
+    conjugate = is_conjugate(name)
+
+    # parse prime part
+    modifiers = name_chars[(n_digits + 1):(conjugate ? end - 1 : end)]
+    isempty(modifiers) || all(in(prime_chars), modifiers) ||
+        throw(ArgumentError("The name $name is not valid."))
+    numprimes = count_primes(modifiers)
+
+    return d, numprimes, conjugate
+end
+
+function add_primes(name::AbstractString, n::Int)
+    n == 0 && return name
+    name *= repeat(prime_chars[4], n ÷ 4)
+    return n % 4 == 0 ? name : name * prime_chars[mod1(n, 4)]
+end
+add_conjugate(name::AbstractString, isconj=true) = isconj ? name * dual_char : name
+
+"""
+    generate_dimname(d::Int, numprimes::Int, conjugate::Bool) -> AbstractString
+
+Generates a dimensional name from a dimension, a number of primes and a conjugate flag.
+
+See also: [`SUNRepresentations.parse_dimname`](@ref)
+"""
+function generate_dimname(d::Int, numprimes::Int, conjugate::Bool)
+    return add_conjugate(add_primes(string(d), numprimes), conjugate)
 end

@@ -1,8 +1,16 @@
 export SUNIrrep
 
 # is this type piracy?
-Base.getindex(::TensorKit.IrrepTable, ::Type{TensorKit.SU{N}}) where {N} = SUNIrrep{N}
+const SU₃ = SU{3}
+const SU₄ = SU{4}
+const SU₅ = SU{5}
+TensorKit.type_repr(::Type{SU₃}) = "SU₃"
+TensorKit.type_repr(::Type{SU₄}) = "SU₄"
+TensorKit.type_repr(::Type{SU₅}) = "SU₅"
+Base.getindex(::TensorKit.IrrepTable, ::Type{SU{N}}) where {N} = SUNIrrep{N}
+
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where {N} = SUNIrrep{N}(I)
+Base.convert(::Type{SUNIrrep{N}}, I::Vector{Int}) where {N} = SUNIrrep{N}(I)
 Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where {T<:SUNIrrep} = Base.IsInfinite()
 
 function Base.iterate(::TensorKit.SectorValues{SUNIrrep{N}}, I=ntuple(zero, N)) where {N}
