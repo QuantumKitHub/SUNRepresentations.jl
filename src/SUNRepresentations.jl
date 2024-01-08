@@ -12,7 +12,7 @@ using Preferences
 export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight, dim
 export directproduct, CGC
 export SU, SU₃, SU₄, SU₅, SU3Irrep, SU4Irrep, SU5Irrep
-export dynkin_label, congruency, index
+export dynkin_label, congruency
 
 """
     struct SUNIrrep{N} <: TensorKit.AbstractIrrep{SU{N}}
