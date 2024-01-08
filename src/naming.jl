@@ -8,21 +8,19 @@ function display_mode(mode::AbstractString)
     return oldmode
 end
 
-function Base.print(io::IO, s::SUNIrrep)
-    display_mode() == "weight" ? print(io, weightname(s)) :
-        display_mode() == "dynkin" ? print(io, dynkinname(s)) :
-        display_mode() == "dimension" ? print(io, dimname(s)) :
-        error("Invalid display mode $(display_mode()).")
-end
 function Base.show(io::IO, s::SUNIrrep)
+    name = display_mode() == "weight" ? weightname(s) :
+           display_mode() == "dynkin" ? dynkinname(s) :
+           display_mode() == "dimension" ? dimname(s) :
+           error("Invalid display mode $(display_mode()).")
     if get(io, :typeinfo, nothing) === typeof(s)
-        print(io, s)
+        print(io, name)
     else
         if display_mode() == "dimension"
             # special case to add "" around the dimension
-            print(io, TensorKit.type_repr(typeof(s)), "(\"", dimname(s), "\")")
+            print(io, TensorKit.type_repr(typeof(s)), "(\"", name, "\")")
         else
-            print(io, TensorKit.type_repr(typeof(s)), "(", s, ")")
+            print(io, TensorKit.type_repr(typeof(s)), "(", name, ")")
         end
     end
     return nothing
