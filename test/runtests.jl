@@ -3,7 +3,7 @@ using Test
 using TestExtras
 using Random
 using TensorKit
-using SUNRepresentations: SUNIrrep
+using SUNRepresentations
 using Combinatorics
 using TensorKit
 using TensorKit: ProductSector, fusiontensor, pentagon_equation, hexagon_equation
