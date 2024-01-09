@@ -5,7 +5,14 @@ for I in sectorlist
     ti = time()
     @testset "Sector $I: Basic properties" begin
         s = (randsector(I), randsector(I), randsector(I))
-        @test eval(Meta.parse(sprint(show, s[1]))) == s[1]
+
+        mode_old = SUNRepresentations.display_mode("dimension")
+        for mode in ["dimension", "dynkin", "weight"]
+            SUNRepresentations.display_mode(mode)
+            @test eval(Meta.parse(sprint(show, s[1]))) == s[1]
+        end
+        SUNRepresentations.display_mode(mode_old)
+
         @test @constinferred(hash(s[1])) == hash(deepcopy(s[1]))
         @test @constinferred(one(s[1])) == @constinferred(one(I))
         @constinferred dual(s[1])
