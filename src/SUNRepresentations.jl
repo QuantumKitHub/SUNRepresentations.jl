@@ -8,7 +8,7 @@ using TensorKit
 using TensorKit: SU, fusiontensor, Nsymbol
 using LRUCache
 using Scratch, Preferences
-using JLD2
+using JLD2, Pidfile
 
 export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight, dim
 export directproduct, CGC

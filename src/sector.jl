@@ -11,6 +11,7 @@ Base.getindex(::TensorKit.IrrepTable, ::Type{SU{N}}) where {N} = SUNIrrep{N}
 
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where {N} = SUNIrrep{N}(I)
 Base.convert(::Type{SUNIrrep{N}}, I::Vector{Int}) where {N} = SUNIrrep{N}(I)
+Base.convert(::Type{SUNIrrep{N}}, I::AbstractString) where {N} = SUNIrrep{N}(I)
 Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where {T<:SUNIrrep} = Base.IsInfinite()
 
 function Base.iterate(::TensorKit.SectorValues{SUNIrrep{N}}, I=ntuple(zero, N)) where {N}
