@@ -43,7 +43,7 @@ end
 SUNIrrep(args::Vararg{Int,N}) where {N} = SUNIrrep{N}(args)
 SUNIrrep{N}(args::Vararg{Int}) where {N} = SUNIrrep{N}(args)
 
-SUNIrrep(a::Vector{Int}) = SUNIrrep{length(a)+1}(a)
+SUNIrrep(a::Vector{Int}) = SUNIrrep{length(a) + 1}(a)
 function SUNIrrep{N}(a::Vector{Int}) where {N}
     @assert length(a) == N - 1
     return SUNIrrep{N}(reverse(cumsum(reverse(a)))..., 0)
@@ -54,7 +54,7 @@ function SUNIrrep{N}(name::AbstractString) where {N}
         name == generate_dimname(6, 0, false) && return SUNIrrep{N}(2, 0, 0)
         name == generate_dimname(6, 0, true) && return SUNIrrep{N}(2, 2, 0)
     end
-    
+
     d, numprimes, conjugate = parse_dimname(name)
     max_dynkin = max_dynkin_label(SUNIrrep{N})
 
@@ -62,7 +62,7 @@ function SUNIrrep{N}(name::AbstractString) where {N}
     same_dim_ids = unique!(index.(same_dim_irreps))
     length(same_dim_ids) < numprimes + 1 &&
         throw(ArgumentError("Either the name $name is not valid for SU{$N} or the irrep has at least one Dynkin label higher than $max_dynkin.\nYou can expand the search space with `SUNRepresentations.max_dynkin_label(SUNIrrep{$N}) = a`."))
-    
+
     id = same_dim_ids[numprimes + 1]
     same_id_irreps = filter(x -> index(x) == id, same_dim_irreps)
     @assert length(same_id_irreps) <= 2

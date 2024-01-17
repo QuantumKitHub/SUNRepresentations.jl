@@ -1,64 +1,47 @@
 const CGCKEY{N} = NTuple{3,SUNIrrep{N}}
-_string(key::CGCKEY) = "$(key[1].I) ⊗ $(key[2].I) → $(key[3].I)"
+const CGCCache{N,T} = LRU{CGCKEY{N},SparseArray{T,4}}
 
-struct CGCCache{N,T}
-    data::LRU{CGCKEY{N},SparseArray{T,4}} # RAM cached CGC tensors
-    function CGCCache{N,T}(; maxsize=10^5) where {N,T}
-        data = LRU{CGCKEY{N},SparseArray{T,4}}(; maxsize)
-        return new{N,T}(data)
-    end
-end
-
-function Base.show(io::IO, cache::CGCCache{N,T}) where {N,T}
-    println(io, typeof(cache))
-    println(io, "    ", LRUCache.cache_info(cache.data))
-    fn = cache_path(N, T)
-    if isfile(fn)
-        println(io, "    ", filesize(fn), " bytes on disk")
-        jldopen(fn, "r") do file
-            return println(io, "    $(length(keys(file))) entries in disk cache")
-        end
-    else
-        println(io, "    no disk cache")
-    end
-end
+# convert sector to string key
+_key(s::SUNIrrep) = string(weight(s))
 
 # List of CGC caches for each N and T
 const CGC_CACHES = LRU{Any,CGCCache}(; maxsize=10)
 
 const CGC_CACHE_PATH = @get_scratch!("CGC")
-cache_path(N, T=Float64) = joinpath(CGC_CACHE_PATH, "$(N)_$(T)")
+function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T=Float64) where {N}
+    return joinpath(CGC_CACHE_PATH, string(N), string(T), _key(s1), _key(s2))
+end
 
-function Base.get!(cache::CGCCache{N,T}, (s1, s2, s3)::CGCKEY{N})::SparseArray{T,4} where {T,N}
-    return get!(cache.data, (s1, s2, s3)) do
-        # if the key is not in the cache, check if it is in a file
-        cachedir = joinpath(cache_path(N, T), "$(weight(s1))")
-        isdir(cachedir) || mkpath(cachedir)
-        fn = "$(weight(s1)) x $(weight(s2))"
+function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+    fn = cgc_cachepath(s1, s2, T) * ".jld2"
+    isfile(fn) || return nothing
 
-        # try reading data
-        if isfile(joinpath(cachedir, fn * ".jld2"))
-            try
-                return jldopen(joinpath(cachedir, fn * ".jld2"), "r";
-                            parallel_read=true) do file
-                    @debug "loaded CGC from disk: $s1 ⊗ $s2 → $s3"
-                    return file[string(weight(s3))]::SparseArray{T,4}
-                end
-            catch
-            end
+    try
+        return jldopen(fn, "r"; parallel_read=true) do file
+            @debug "loaded CGC from disk: $s1 ⊗ $s2 → $s3"
+            return file[_key(s3)]::SparseArray{T,4}
         end
-        # if failed, create new data
-        CGCs = Dict(string(weight(s3′)) => _CGC(T, s1, s2, s3′)
-                    for s3′ in s1 ⊗ s2)
-
-        # write CGCs to disk
-        mkpidlock(joinpath(cachedir, fn * ".pid")) do
-            return save(joinpath(cachedir, fn * ".jld2"), CGCs)
-        end
-
-        # return CGC
-        return CGCs[string(weight(s3))]
+    catch
     end
+
+    return nothing
+end
+
+#= wait at most 1 min before deciding to overwrite. This should avoid deadlocking if a
+process started writing but got killed before removing the pidfile. =#
+const _PID_STALE_AGE = 60.0
+
+function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T,N}
+    @debug "Generating CGCs: $s1 ⊗ $s2"
+    CGCs = Dict(_key(s3) => _CGC(T, s1, s2, s3) for s3 in s1 ⊗ s2)
+    fn = cgc_cachepath(s1, s2, T)
+    isdir(dirname(fn)) || mkpath(dirname(fn))
+
+    mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+        return save(fn * ".jld2", CGCs)
+    end
+
+    return CGCs
 end
 
 """
@@ -68,37 +51,19 @@ Populate the CGC cache for ``SU(N)`` with eltype `T` with all CGCs with Dynkin l
 ``a_max``.
 Will not recompute CGCs that are already in the cache, unless ``force=true``.
 """
-function precompute_disk_cache(N, a_max::Int=3, T::Type{<:Number}=Float64; force=false)
-    all_dynkinlabels = CartesianIndices(ntuple(_ -> (a_max + 1), N - 1))
-    all_irreps = [SUNIrrep(reverse(cumsum(I.I .- 1))..., 0) for I in all_dynkinlabels]
-
-    @sync begin
-        for s1 in all_irreps
-            cachedir = joinpath(cache_path(N, T), "$(weight(s1))")
-            isdir(cachedir) || mkpath(cachedir)
-            for s2 in all_irreps
-                if force || !isfile(joinpath(cachedir, "$(weight(s1)) x $(weight(s2)).jld2"))
-                    Threads.@spawn _compute_disk_cache($s1, $s2, $T)
-                end
+function precompute_disk_cache(N, a_max::Int=1, T::Type{<:Number}=Float64; force=false)
+    all_irreps = all_dynkin(SUNIrrep{N}, a_max)
+    @sync for s1 in all_irreps, s2 in all_irreps
+        if force || !isfile(cgc_cachepath(s1, s2, T) * ".jld2")
+            Threads.@spawn begin
+                generate_all_CGCs(T, s1, s2)
+                nothing
             end
         end
     end
-    
+
     cache_info()
     return nothing
-end
-
-function _compute_disk_cache(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T) where {N}
-    @info "Computing CGC: $s1 ⊗ $s2"
-    cachedir = joinpath(cache_path(N, T), "$(weight(s1))")
-    fn = "$(weight(s1)) x $(weight(s2))"
-    CGCs = Dict(string(weight(s3)) => _CGC(T, s1, s2, s3)
-                for s3 in s1 ⊗ s2)
-
-    # write CGCs to disk
-    mkpidlock(joinpath(cachedir, fn * ".pid")) do
-        return save(joinpath(cachedir, fn * ".jld2"), CGCs)
-    end
 end
 
 """
@@ -107,10 +72,10 @@ end
 Remove the CGC cache for ``SU(N)`` with eltype `T` from disk.
 """
 function clear_disk_cache!(N, T=Float64)
-    fn = cache_path(N, T)
-    if isfile(fn)
+    fldrname = joinpath(CGC_CACHE_PATH, string(N), string(T))
+    if isdir(fldrname)
         @info "Removing disk cache SU($N): $T"
-        rm(fn)
+        rm(fldrname; recursive=true)
     end
     return nothing
 end
@@ -121,46 +86,51 @@ end
 
 _parse_filename(fn) = split(splitext(basename(fn))[1], "_")
 
-"""
-    cache_info()
-
-Print information about the CGC cache.
-"""
-function cache_info(io::IO=stdout)
+function ram_cache_info(io::IO=stdout)
     println(io, "CGC RAM cache info:")
     println(io, "===================")
     for ((N, T), cache) in CGC_CACHES
         println(io, "SU($N) - $T")
         println(io, "------------------------")
-        println(io, cache)
+        println(io, "* ", LRUCache.cache_info(cache))
         println(io)
     end
+    return nothing
+end
 
-    println(io)
+function disk_cache_info(io::IO=stdout)
     println(io, "CGC disk cache info:")
     println(io, "====================")
+    isdir(CGC_CACHE_PATH) || return nothing
 
-    cache_dir = CGC_CACHE_PATH
-    isdir(cache_dir) || return nothing
-
-    for fldr in readdir(cache_dir; join=true)
-        isdir(fldr) || continue
-        N, T = _parse_filename(fldr)
-
-        n_bytes = 0
-        n_entries = 0
-
-        for (root, _, files) in walkdir(fldr)
-            for f in files
-                n_bytes += filesize(joinpath(root, f))
-                n_entries += jldopen(file -> length(keys(file)), joinpath(root, f), "r")
+    for fldr_N in readdir(CGC_CACHE_PATH; join=true)
+        isdir(fldr_N) || continue
+        N = last(splitpath(fldr_N))
+        for fldr_T in readdir(fldr_N; join=true)
+            isdir(fldr_T) || continue
+            T = basename(fldr_T)
+            n_bytes = 0
+            n_entries = 0
+            for (root, _, files) in walkdir(fldr_T)
+                for f in files
+                    n_bytes += filesize(joinpath(root, f))
+                    n_entries += jldopen(file -> length(keys(file)), joinpath(root, f), "r")
+                end
             end
+            println(io,
+                    "* SU($N) - $T - $(n_entries) entries - $(Base.format_bytes(n_bytes))")
         end
-
-        println(io, "SU($N) - $T")
-        println(io, "    * ", n_entries, " entries")
-        println(io, "    * ", Base.format_bytes(n_bytes))
-        println(io)
     end
+    return nothing
+end
+
+"""
+    cache_info([io=stdout])
+
+Print information about the CGC cache.
+"""
+function cache_info(io::IO=stdout)
+    ram_cache_info(io)
+    disk_cache_info(io)
     return nothing
 end

@@ -8,7 +8,7 @@ using Latexify: @latexrecipe, LaTeXString
 @latexrecipe function f(x::SUNIrrep)
     ## set parameters
     env --> :inline
-    
+
     ## convert into latex string
     d, numprimes, conjugate = parse_dimname(dimname(x))
     str_new = conjugate ? "\\overline{\\textbf{$d}}" : "\\textbf{$d}"

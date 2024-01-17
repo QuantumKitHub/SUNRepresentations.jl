@@ -3,7 +3,7 @@ println("Caching tests")
 println("------------------------------------")
 
 # Tests for caching of Clebsch-Gordan coefficients
-import SUNRepresentations: cache_info, precompute_disk_cache, cache_path, clear_disk_cache!
+import SUNRepresentations: cache_info, precompute_disk_cache, clear_disk_cache!
 
 # only remove cache if running on CI
 if get(ENV, "CI", false) == "true"
