@@ -84,8 +84,6 @@ function clear_disk_cache!()
     return nothing
 end
 
-_parse_filename(fn) = split(splitext(basename(fn))[1], "_")
-
 function ram_cache_info(io::IO=stdout)
     println(io, "CGC RAM cache info:")
     println(io, "===================")
