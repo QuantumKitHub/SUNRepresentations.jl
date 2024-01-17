@@ -2,6 +2,7 @@ module SUNRepresentations
 
 using TensorOperations
 using SparseArrayKit
+using RationalRoots
 using LinearAlgebra
 using TensorKit
 using TensorKit: SU, fusiontensor, Nsymbol
