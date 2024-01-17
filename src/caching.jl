@@ -90,10 +90,7 @@ function ram_cache_info(io::IO=stdout)
     println(io, "CGC RAM cache info:")
     println(io, "===================")
     for ((N, T), cache) in CGC_CACHES
-        println(io, "SU($N) - $T")
-        println(io, "------------------------")
-        println(io, "* ", LRUCache.cache_info(cache))
-        println(io)
+        println(io, "* SU($N) - $T - $(LRUCache.cache_info(cache))")
     end
     return nothing
 end
@@ -131,6 +128,7 @@ Print information about the CGC cache.
 """
 function cache_info(io::IO=stdout)
     ram_cache_info(io)
+    println(io)
     disk_cache_info(io)
     return nothing
 end
