@@ -26,37 +26,42 @@ Irrep[SU{3}]((2, 1, 0)) ⊗ Irrep[SU{3}]((2, 1, 0)) = SUNIrrep{3}[(0, 0, 0), (4,
 
 ## Caching Clebsch-Gordan coefficients
 
-Because the computation of Clebsch-Gordan coefficients can be quite expensive, they are
-cached to a file on disk, while a limited amount is kept in the RAM. It is possible to
-precompute a set of Clebsch-Gordan coefficients and store them on disk, so that they can be
-reused later. This is especially useful when computing Clebsch-Gordan coefficients in
-parallel. This can be done using the `SUNRepresentations.precompute_disk_cache(N, a_max)`
-function.
+As computing the Clebsch-Gordan coefficients is a relatively expensive operation, this packages automatically caches the results of the computations. To obtain information about the current status of the cache, one can call `SUNRepresentations.cache_info()`.
 
-By default, the coefficients are only cached in memory, and will
-be lost when the Julia session is closed. In order to cache the coefficients that are
-currently stored in memory to disk, you can call `SUNRepresentations.sync_disk_cache(N)`.
-This will create a scratchfile, which will then automatically be used the next time you want
-to compute Clebsch-Gordan coefficients. Often, it can be useful to precompute a large set of
-Clebsch-Gordan coefficients (in parallel) and store them on disk. This can be done using the
-`SUNRepresentations.precompute_disk_cache(N, a_max)` function. This has the additional
-benefit that the coefficients can be computed in parallel.
+Often, it may be useful to precompute a large set of coefficients (in parallel). These can
+then be stored on disk and loaded when needed, or even transferred to other machines. This
+can be done using the `SUNRepresentations.precompute_disk_cache(N, a_max)` function, which
+will compute all Clebsch-Gordan coefficients for `s1 ⊗ s2 -> s3`, where `s1` and `s2` will
+have Dynkin labels smaller than `a_max`, and `s3` runs over all outputs of the fusion
+product.
 
 ```julia-repl
-julia> SUNRepresentations.precompute_disk_cache(3, 2)
-CGC RAM cache info:
-===================
-
+julia> SUNRepresentations.precompute_disk_cache(3)
 CGC disk cache info:
 ====================
-SU(3) - Float64
-    * 65 entries
-    * 135.191 KiB
+* SU(3) - Float64 - 32 entries - 134.462 KiB
 ```
 
-They are stored at `SUNRepresentations.cache_path(N)` and can be removed using
-`SUNRepresentations.clear_disk_cache([N])`. To display information, use
-`SUNRepresentations.cache_info()`.
+The values are stored at `SUNRepresentations.CGC_CACHE_PATH`, which is a package-wide
+scratch space. The folder structure is as follows:
+
+```quote
+CGC/
+├── 3/
+│   ├── Float64/
+│   │   ├── (0, 0, 0)/
+│   │   │   ├── (0, 0, 0).jld2
+│   │   │   ├── (1, 0, 0).jld2
+│   │   │   ├── (1, 1, 0).jld2
+│   │   │   └── (2, 1, 0).jld2
+│   │   ├── (1, 0, 0)/
+│   │   │   └── ...
+│   │   └── ...
+│   └── Float32/
+│      └── ...
+├── 4/
+└── ...
+```
 
 ## Conventions
 
@@ -98,5 +103,3 @@ L"$\overline{\textbf{10}}$"
 ## TODO
 
 * Documentation
-* Thread-safety of cache structures
-* Ability to store/load generated cache data

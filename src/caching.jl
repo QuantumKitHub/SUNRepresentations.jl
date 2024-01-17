@@ -62,7 +62,7 @@ function precompute_disk_cache(N, a_max::Int=1, T::Type{<:Number}=Float64; force
         end
     end
 
-    cache_info()
+    disk_cache_info()
     return nothing
 end
 
