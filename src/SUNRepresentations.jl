@@ -45,7 +45,8 @@ SUNIrrep{N}(args::Vararg{Int}) where {N} = SUNIrrep{N}(args)
 
 SUNIrrep(a::Vector{Int}) = SUNIrrep{length(a) + 1}(a)
 function SUNIrrep{N}(a::Vector{Int}) where {N}
-    @assert length(a) == N - 1
+    length(a) == N - 1 ||
+        throw(ArgumentError("Dynkin labels for `SUNIrrep{$N}` should be a vector of length $(N - 1)"))
     return SUNIrrep{N}(reverse(cumsum(reverse(a)))..., 0)
 end
 
