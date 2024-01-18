@@ -67,14 +67,23 @@ function precompute_disk_cache(N, a_max::Int=1, T::Type{<:Number}=Float64; force
 end
 
 """
-    clear_disk_cache!(N, [T=Float64])
+    clear_disk_cache!([N, [T]])
 
-Remove the CGC cache for ``SU(N)`` with eltype `T` from disk.
+Remove the CGC cache for ``SU(N)`` with eltype `T` from disk. If the arguments are not
+specified, this removes the cached CGCs for all values of that parameter.
 """
-function clear_disk_cache!(N, T=Float64)
+function clear_disk_cache!(N, T)
     fldrname = joinpath(CGC_CACHE_PATH, string(N), string(T))
     if isdir(fldrname)
         @info "Removing disk cache SU($N): $T"
+        rm(fldrname; recursive=true)
+    end
+    return nothing
+end
+function clear_disk_cache!(N)
+    fldrname = joinpath(CGC_CACHE_PATH, string(N))
+    if isdir(fldrname)
+        @info "Removing disk cache SU($N)"
         rm(fldrname; recursive=true)
     end
     return nothing
@@ -85,6 +94,10 @@ function clear_disk_cache!()
 end
 
 function ram_cache_info(io::IO=stdout)
+    if isempty(CGC_CACHES)
+        println("CGC RAM cache is empty.")
+        return nothing
+    end
     println(io, "CGC RAM cache info:")
     println(io, "===================")
     for ((N, T), cache) in CGC_CACHES
@@ -94,13 +107,16 @@ function ram_cache_info(io::IO=stdout)
 end
 
 function disk_cache_info(io::IO=stdout)
+    if !isdir(CGC_CACHE_PATH) || isempty(readdir(CGC_CACHE_PATH))
+        println("CGC disk cache is empty.")
+        return nothing
+    end
     println(io, "CGC disk cache info:")
     println(io, "====================")
-    isdir(CGC_CACHE_PATH) || return nothing
 
     for fldr_N in readdir(CGC_CACHE_PATH; join=true)
         isdir(fldr_N) || continue
-        N = last(splitpath(fldr_N))
+        N = basename(fldr_N)
         for fldr_T in readdir(fldr_N; join=true)
             isdir(fldr_T) || continue
             T = basename(fldr_T)
