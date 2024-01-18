@@ -11,17 +11,12 @@ end
 function Base.show(io::IO, s::SUNIrrep)
     name = display_mode() == "weight" ? weightname(s) :
            display_mode() == "dynkin" ? dynkinname(s) :
-           display_mode() == "dimension" ? dimname(s) :
+           display_mode() == "dimension" ? "\"$(dimname(s))\"" :
            error("Invalid display mode $(display_mode()).")
     if get(io, :typeinfo, nothing) === typeof(s)
         print(io, name)
     else
-        if display_mode() == "dimension"
-            # special case to add "" around the dimension
-            print(io, TensorKit.type_repr(typeof(s)), "(\"", name, "\")")
-        else
-            print(io, TensorKit.type_repr(typeof(s)), "(", name, ")")
-        end
+        print(io, TensorKit.type_repr(typeof(s)), "(", name, ")")
     end
     return nothing
 end
@@ -91,16 +86,13 @@ function index(s::SUNIrrep)
     return numerator(id)
 end
 
+function all_dynkin(::Type{SUNIrrep{N}}, maxdynkin::Int=3) where {N}
+    return (SUNIrrep(collect(I.I .- 1))
+            for I in CartesianIndices(ntuple(k -> maxdynkin + 1, N - 1)))
+end
+
 function irreps_by_dim(::Type{SUNIrrep{N}}, d::Int, maxdynkin::Int=3) where {N}
-    irreps = SUNIrrep{N}[]
-
-    all_dynkin = CartesianIndices(ntuple(k -> maxdynkin + 1, N - 1))
-    for a in all_dynkin
-        I = SUNIrrep(collect(a.I .- 1))
-        dim(I) == d && push!(irreps, I)
-    end
-    # @show index.(irreps) congruency.(irreps) dynkin_label.(irreps)
-
+    irreps = [I for I in all_dynkin(SUNIrrep{N}, maxdynkin) if dim(I) == d]
     return sort!(irreps; by=x -> (index(x), congruency(x), dynkin_label(x)))
 end
 
@@ -125,7 +117,7 @@ function find_dimname(s::SUNIrrep{N}) where {N}
     else
         error("this should never happen")
     end
-    
+
     return d, numprimes, conjugate
 end
 
@@ -155,7 +147,7 @@ function dimname(s::SUNIrrep{N}) where {N}
     # for some reason in SU{3}, the 6-dimensional irreps have switched duality
     s == SUNIrrep(2, 0, 0) && return generate_dimname(6, 0, false)
     s == SUNIrrep(2, 2, 0) && return generate_dimname(6, 0, true)
-    
+
     d, numprimes, conjugate = find_dimname(s)
     return generate_dimname(d, numprimes, conjugate)
 end

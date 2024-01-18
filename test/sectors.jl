@@ -115,4 +115,10 @@ for I in sectorlist
                 string(round(tf - ti; sigdigits=3)),
                 " seconds."; bold=true, color=Base.info_color())
     println()
+    
+    try
+        s = sprint(SUNRepresentations.cache_info)
+    catch
+        @test false
+    end
 end

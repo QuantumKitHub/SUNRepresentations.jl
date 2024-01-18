@@ -11,6 +11,7 @@ Base.getindex(::TensorKit.IrrepTable, ::Type{SU{N}}) where {N} = SUNIrrep{N}
 
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where {N} = SUNIrrep{N}(I)
 Base.convert(::Type{SUNIrrep{N}}, I::Vector{Int}) where {N} = SUNIrrep{N}(I)
+Base.convert(::Type{SUNIrrep{N}}, I::AbstractString) where {N} = SUNIrrep{N}(I)
 Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where {T<:SUNIrrep} = Base.IsInfinite()
 
 function Base.iterate(::TensorKit.SectorValues{SUNIrrep{N}}, I=ntuple(zero, N)) where {N}
@@ -33,7 +34,7 @@ Base.one(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
 
 TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where {N} = TensorKit.GenericFusion()
 Base.isreal(::Type{<:SUNIrrep}) = true
-TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic();
+TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic()
 
 function TensorKit.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
     return TensorKit.SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))

@@ -45,6 +45,7 @@ using SUNRepresentations
 include("generic.jl")
 end
 
+include("caching.jl")
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
 include("sectors.jl")
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})

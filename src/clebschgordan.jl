@@ -14,18 +14,24 @@ function weightmap(basis)
     return weights
 end
 
-CGCCACHE = LRU{Any,Any}(; maxsize=10^5)
 CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
-function CGC(T::Type{<:Real}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {N}
-    cachetype = LRU{Tuple{SUNIrrep{N},SUNIrrep{N},SUNIrrep{N}},SparseArray{T,4}}
-    cache = get!(CGCCACHE, (N, T), cachetype(; maxsize=10^5))::cachetype
+function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+    cache = get!(() -> CGCCache{N,T}(; maxsize=100_000), CGC_CACHES, (N, T))::CGCCache{N,T}
     return get!(cache, (s1, s2, s3)) do
-        return _CGC(Float64, s1, s2, s3)
+        # if the key is not in the cache, check if it is in a file
+        result = tryread(T, s1, s2, s3)
+        isnothing(result) || return result
+
+        # if not, compute it
+        CGCs = generate_all_CGCs(T, s1, s2)
+        return CGCs[_key(s3)]
     end
 end
+
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
     CGC = highest_weight_CGC(T, s1, s2, s3)
     lower_weight_CGC!(CGC, s1, s2, s3)
+    @debug "Computed CGC: $s1 ⊗ $s2 → $s3"
     return CGC
 end
 
@@ -70,7 +76,6 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     end
     rows = unique!(sort!(rows))
     reduced_eqs = convert(Array, eqs[rows, cols])
-
     solutions = _nullspace(reduced_eqs; atol=TOL_NULLSPACE)
     N123 = size(solutions, 2)
 
@@ -81,7 +86,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     CGC = SparseArray{T}(undef, d1, d2, d3, N123)
     for α in 1:N123
         for (i, m1m2) in enumerate(cols)
-            #replacing d3 with end fails, because of a subtle sparsearray bug
+            # replacing d3 with end fails, because of a subtle sparsearray bug
             CGC[m1m2, d3, α] = solutions[i, α]
         end
     end
