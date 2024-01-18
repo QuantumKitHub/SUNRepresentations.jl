@@ -142,6 +142,10 @@ same, the one with the lowest Dynkin label, compared lexicographically, is chose
     `s` for SU{N} with `N <= 4`, and up to the maximal Dynkin label for `N > 4`. This means
     that it is possible that the number of primes is not consistent. Nevertheless, these
     labels are never used internally and should thus not cause any problems.
+
+## References
+- R. Slansky, “Group theory for unified model building,” Physics Reports, vol. 79, no. 1, pp. 1–128, Dec. 1981, doi: 10.1016/0370-1573(81)90092-2.
+- R. Feger and T. W. Kephart, “LieART -- A Mathematica Application for Lie Algebras and Representation Theory,” arXiv, arXiv:1206.6379, Aug. 2014. doi: 10.48550/arXiv.1206.6379.
 """
 function dimname(s::SUNIrrep{N}) where {N}
     # for some reason in SU{3}, the 6-dimensional irreps have switched duality
