@@ -53,8 +53,9 @@ sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
 include("fusiontrees.jl")
 
 @testset "Aqua" verbose = true begin
-    Aqua.test_all(SUNRepresentations; ambiguities=false)
-    # RationalRoots has ambiguities with Base/Core, so only test SUNRepresentations
+    # RationalRoots has ambiguities with Base/Core, so only test SUNRepresentations ambiguities
+    # Intentional piracy of Rep[SU{N}] etc
+    Aqua.test_all(SUNRepresentations; ambiguities=false, piracies=(; treat_as_own=[SU]))
     Aqua.test_ambiguities([SUNRepresentations])
 end
 
