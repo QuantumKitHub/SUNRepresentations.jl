@@ -1,6 +1,7 @@
 
 using Test
 using TestExtras
+using Aqua
 using Random
 using TensorKit
 using SUNRepresentations
@@ -50,6 +51,12 @@ sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3}
 include("sectors.jl")
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
 include("fusiontrees.jl")
+
+@testset "Aqua" verbose = true begin
+    Aqua.test_all(SUNRepresentations; ambiguities=false)
+    # RationalRoots has ambiguities with Base/Core, so only test SUNRepresentations
+    Aqua.test_ambiguities([SUNRepresentations])
+end
 
 Tf = time()
 printstyled("Finished all tests in ",
