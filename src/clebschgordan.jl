@@ -29,14 +29,39 @@ function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where
 end
 
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
-    CGC = highest_weight_CGC(T, s1, s2, s3)
-    lower_weight_CGC!(CGC, s1, s2, s3)
+    if isone(s1)
+        @assert s2 == s3
+        CGC = trivial_CGC(T, s2, true)
+    elseif isone(s2)
+        @assert s1 == s3
+        CGC = trivial_CGC(T, s1, false)
+    else
+        CGC = highest_weight_CGC(T, s1, s2, s3)
+        lower_weight_CGC!(CGC, s1, s2, s3)
+    end
     @debug "Computed CGC: $s1 ⊗ $s2 → $s3"
     return CGC
 end
 
 gaugefix!(C) = first(qrpos!(cref!(C, TOL_GAUGE)))
 # gaugefix(C) = C*conj.(first(qrpos!(rref!(permutedims(C)))))
+
+# special case for 1 ⊗ s -> s or s ⊗ 1 -> s
+function trivial_CGC(::Type{T}, s::SUNIrrep, isleft=true) where {T<:Real}
+    d = dim(s)
+    if isleft
+        CGC = SparseArray{T}(undef, 1, d, d, 1)
+        for m in 1:d
+            CGC[1, m, m, 1] = one(T)
+        end
+    else
+        CGC = SparseArray{T}(undef, d, 1, d, 1)
+        for m in 1:d
+            CGC[m, 1, m, 1] = one(T)
+        end
+    end
+    return CGC
+end
 
 const _emptyindexlist = Vector{Int}()
 
