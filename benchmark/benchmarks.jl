@@ -1,3 +1,12 @@
+import Pkg; Pkg.instantiate()
+
+using MKL
+import ThreadPinning
+if length(ARGS) > 0 && ARGS[1] == "pin"
+    ThreadPinning.pinthreads(:cores)
+    ThreadPinning.mkl_set_dynamic(0)
+end
+
 using BenchmarkTools
 using Random
 using Test
@@ -65,6 +74,7 @@ for N in 3:MAX_SUN, _ in 1:NUM_TESTS
 end
 
 results = run(CGC_benchmarks; verbose=true)
+BenchmarkTools.save("benchmark_results.json", results)
 
 # Process results
 # ---------------
