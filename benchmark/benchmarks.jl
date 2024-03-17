@@ -1,7 +1,8 @@
-import Pkg; Pkg.instantiate()
+using Pkg: Pkg;
+Pkg.instantiate();
 
 using MKL
-import ThreadPinning
+using ThreadPinning: ThreadPinning
 if length(ARGS) > 0 && ARGS[1] == "pin"
     ThreadPinning.pinthreads(:cores)
     ThreadPinning.mkl_set_dynamic(0)
@@ -13,7 +14,8 @@ using Test
 using LinearAlgebra: qr!, ldiv!
 using TensorKit
 using SUNRepresentations
-using SUNRepresentations: trivial_CGC, highest_weight_CGC, lower_weight_CGC!, weightmap, _emptyindexlist
+using SUNRepresentations: trivial_CGC, highest_weight_CGC, lower_weight_CGC!, weightmap,
+                          _emptyindexlist
 using CairoMakie
 using DataFrames, Statistics
 
@@ -64,10 +66,10 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 60
 for N in 3:MAX_SUN, _ in 1:NUM_TESTS
     s1, s2, s3 = rand_sectors(N, MAXNUM)
     @info "$s1 ⊗ $s2 → $s3"
-    
+
     base_cgc = _CGC(T, s1, s2, s3, Val(0))
     CGC_benchmarks[0][s1, s2, s3] = @benchmarkable _CGC($T, $s1, $s2, $s3, Val(0))
-    
+
     new_cgc = _CGC(T, s1, s2, s3, Val(2))
     @test new_cgc ≈ base_cgc
     CGC_benchmarks[MODE][s1, s2, s3] = @benchmarkable _CGC($T, $s1, $s2, $s3, Val(MODE))
@@ -98,8 +100,6 @@ begin
     end
 end
 
-
-
 # Report results
 # --------------
 
@@ -110,38 +110,44 @@ colors = Makie.wong_colors()
 function plot_timing!(ax, df)
     df_filtered = select(df, :s1, :s2, :s3, :t_min, :mode)
     df_joined = innerjoin(groupby(df_filtered, :mode; sort=true)...; on=[:s1, :s2, :s3],
-                          renamecols = "_old" => "_new")
+                          renamecols="_old" => "_new")
     ax.title = "Timing comparison"
     ax.xlabel = "baseline timing"
     ax.xticks = (timing_tick_vals, timing_tick_labels)
     ax.ylabel = "Speedup factor"
-    
-    scatter!(ax, log10.(df_joined.t_min_old) .- 9, df_joined.t_min_old ./ df_joined.t_min_new; color = colors[getproperty.(df_joined.s1, :N)])
+
+    scatter!(ax, log10.(df_joined.t_min_old) .- 9,
+             df_joined.t_min_old ./ df_joined.t_min_new;
+             color=colors[getproperty.(df_joined.s1, :N)])
     return ax
 end
 
 function plot_allocations!(ax, df)
     df_filtered = select(df, :s1, :s2, :s3, :a_min, :mode)
-    df_joined = innerjoin(groupby(df_filtered, :mode, sort=true)..., on=[:s1, :s2, :s3],
-                          renamecols = "_old" => "_new")
+    df_joined = innerjoin(groupby(df_filtered, :mode; sort=true)...; on=[:s1, :s2, :s3],
+                          renamecols="_old" => "_new")
     ax.title = "Allocation comparison"
     ax.xlabel = "baseline allocations"
     ax.ylabel = "Speedup factor"
     ax.xtickformat = values -> ["1e$value" for value in values]
-    
-    scatter!(ax, log10.(df_joined.a_min_old), df_joined.a_min_new ./ df_joined.a_min_old; color = colors[getproperty.(df_joined.s1, :N)])
+
+    scatter!(ax, log10.(df_joined.a_min_old), df_joined.a_min_new ./ df_joined.a_min_old;
+             color=colors[getproperty.(df_joined.s1, :N)])
     return ax
 end
 
 function plot_memory!(ax, df)
     df_filtered = select(df, :s1, :s2, :s3, :m_min, :mode)
     df_joined = innerjoin(groupby(df_filtered, :mode; sort=true)...; on=[:s1, :s2, :s3],
-                          renamecols = "_old" => "_new")
+                          renamecols="_old" => "_new")
     ax.title = "Memory comparison"
     ax.xlabel = "baseline memory"
     ax.ylabel = "Speedup factor"
-    ax.xticks = ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ["1B", "10B", "100B", "1KB", "10KB", "100KB", "1MB", "10MB", "100MB", "1GB"])
-    scatter!(ax, log10.(df_joined.m_min_old), df_joined.m_min_new ./ df_joined.m_min_old; color = colors[getproperty.(df_joined.s1, :N)])
+    ax.xticks = ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                 ["1B", "10B", "100B", "1KB", "10KB", "100KB", "1MB", "10MB", "100MB",
+                  "1GB"])
+    scatter!(ax, log10.(df_joined.m_min_old), df_joined.m_min_new ./ df_joined.m_min_old;
+             color=colors[getproperty.(df_joined.s1, :N)])
     return ax
 end
 
@@ -153,7 +159,6 @@ function plot_comparison!(f, df)
     return f
 end
 
-
 f = let f = Figure(; size=(1200, 800))
     plot_comparison!(f, df)
     Legend(f[1, 1][1, 2], [PolyElement(; color=colors[N]) for N in 3:MAX_SUN],
@@ -162,4 +167,4 @@ f = let f = Figure(; size=(1200, 800))
     f
 end
 
-save("benchmark_results.png", f, px_per_unit=2)
+save("benchmark_results.png", f; px_per_unit=2)
