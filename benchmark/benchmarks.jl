@@ -1,12 +1,8 @@
 using Pkg: Pkg;
 Pkg.instantiate();
 
-using MKL
-using ThreadPinning: ThreadPinning
-if length(ARGS) > 0 && ARGS[1] == "pin"
-    ThreadPinning.pinthreads(:cores)
-    ThreadPinning.mkl_set_dynamic(0)
-end
+using ThreadPinning
+ThreadPinning.pinthreads(:cores)
 
 using BenchmarkTools
 using Random
