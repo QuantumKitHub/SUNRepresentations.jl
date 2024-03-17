@@ -3,6 +3,7 @@ Pkg.instantiate();
 
 using ThreadPinning
 ThreadPinning.pinthreads(:cores)
+ThreadPinning.threadinfo(;blas=true, hints=true)
 
 using BenchmarkTools
 using Random
