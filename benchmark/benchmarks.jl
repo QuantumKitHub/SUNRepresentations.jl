@@ -53,9 +53,9 @@ const suite = BenchmarkGroup()
 CGC_benchmarks = suite["CGC"]
 
 const T = Float64
-const MAXNUM = 100
-const NUM_TESTS = 500
-const MAX_SUN = 6
+const MAXNUM = 50
+const NUM_TESTS = 100
+const MAX_SUN = 5
 const MODE = 2
 
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 60
