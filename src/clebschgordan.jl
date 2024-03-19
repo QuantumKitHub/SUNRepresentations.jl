@@ -2,6 +2,8 @@ const TOL_NULLSPACE = 1e-13
 # tolerance for nullspace
 const TOL_GAUGE = 1e-11
 # tolerance for gaugefixing should probably be bigger than that with which nullspace was determined
+const TOL_PURGE = 1e-14
+# tolerance for dropping zeros
 
 function weightmap(basis)
     N = first(basis).N
@@ -38,6 +40,7 @@ function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
     else
         CGC = highest_weight_CGC(T, s1, s2, s3)
         lower_weight_CGC!(CGC, s1, s2, s3)
+        purge!(CGC)
     end
     @debug "Computed CGC: $s1 ⊗ $s2 → $s3"
     return CGC
@@ -129,7 +132,7 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} wher
     map1 = weightmap(basis(s1))
     map2 = weightmap(basis(s2))
     map3 = weightmap(basis(s3))
-    
+
     # reverse lexographic order: so all relevant parents should come earlier
     # and should thus have been solved
     w3list = sort(collect(keys(map3)); rev=true)
@@ -139,7 +142,7 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} wher
     rhs_rows = Int[]
     rhs_cols = CartesianIndex{2}[]
     rhs_vals = T[]
-    
+
     # @threads for α = 1:N123 # TODO: consider multithreaded implementation
     for α in 1:N123
         for w3 in view(w3list, 2:length(w3list))
@@ -151,12 +154,12 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} wher
                 return length(get(map3, w3′, _emptyindexlist))
             end
             eqs = Array{T}(undef, (imax, jmax))
-            
+
             # reset vectors but avoid allocations
             empty!(rhs_rows)
             empty!(rhs_cols)
             empty!(rhs_vals)
-            
+
             i = 0
             # build CGC equations:
             # J⁻₃ |m₃⟩ = (J⁻₁ ⊗ 𝕀 + 𝕀 ⊗ J⁻₂) |m₁, m₂>
@@ -198,7 +201,7 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} wher
                     end
                 end
             end
-            
+
             # construct dense array for the nonzero columns exclusively
             mask = unique(rhs_cols)
             rhs_cols′ = indexin(rhs_cols, mask)
@@ -206,10 +209,10 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} wher
             @inbounds for (row, col, val) in zip(rhs_rows, rhs_cols′, rhs_vals)
                 rhs[row, col] += val
             end
-            
+
             # solve equations
             sols = ldiv!(qr!(eqs), rhs)
-            
+
             # fill in CGC
             # loop over sols in column major order, CGC is hashmap anyways
             @inbounds for (i, Im1m2) in enumerate(mask)
@@ -283,12 +286,18 @@ function findabsmax(a)
 end
 
 function _nullspace!(A::AbstractMatrix; atol::Real=0.0,
-                    rtol::Real=(min(size(A)...) * eps(real(float(one(eltype(A)))))) *
-                               iszero(atol))
+                     rtol::Real=(min(size(A)...) * eps(real(float(one(eltype(A)))))) *
+                                iszero(atol))
     m, n = size(A)
     (m == 0 || n == 0) && return Matrix{eltype(A)}(I, n, n)
     SVD = svd!(A; full=true, alg=LinearAlgebra.QRIteration())
     tol = max(atol, SVD.S[1] * rtol)
     indstart = sum(s -> s .> tol, SVD.S) + 1
     return copy(SVD.Vt[indstart:end, :]')
+end
+
+# remove approximate zeros from sparse array
+function purge!(C::SparseArray; atol::Real=TOL_PURGE)
+    filter!(((_, v),) -> abs(v) > atol, C.data)
+    return C
 end
