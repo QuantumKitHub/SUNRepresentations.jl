@@ -1,8 +1,8 @@
 # SUNRepresentations.jl
 
 [![Build
-Status](https://github.com/maartenvd/SUNRepresentations.jl/workflows/CI/badge.svg)](https://github.com/maartenvd/SUNRepresentations.jl/actions)
-[![Coverage](https://codecov.io/gh/maartenvd/SUNRepresentations.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/maartenvd/SUNRepresentations.jl/branch/master)
+Status](https://github.com/QuantumKitHub/SUNRepresentations.jl/workflows/CI/badge.svg)](https://github.com/QuantumKitHub/SUNRepresentations.jl/actions)
+[![Coverage](https://codecov.io/gh/QuantumKitHub/SUNRepresentations.jl/graph/badge.svg?token=17UEPA3KXT)](https://codecov.io/gh/QuantumKitHub/SUNRepresentations.jl)
 
 Compute Clebsch-Gordan coefficients for general SU(N) groups. Reimplementation of [arXiv:1009.0437](https://arxiv.org/pdf/1009.0437.pdf). Compatibility / interoperability with [TensorKit.jl](https://github.com/Jutho/TensorKit.jl).
 
