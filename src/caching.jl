@@ -15,13 +15,16 @@ end
 function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
     fn = cgc_cachepath(s1, s2, T) * ".jld2"
     isfile(fn) || return nothing
-
-    try
-        return jldopen(fn, "r"; parallel_read=true) do file
-            @debug "loaded CGC from disk: $s1 ⊗ $s2 → $s3"
-            return file[_key(s3)]::SparseArray{T,4}
+    
+    return mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+        try
+            return jldopen(fn, "r"; parallel_read=true) do file
+                @debug "loaded CGC from disk: $s1 ⊗ $s2 → $s3"
+                !haskey(file, _key(s3)) && return nothing
+                return file[_key(s3)]::SparseArray{T,4}
+            end
+        catch
         end
-    catch
     end
 
     return nothing
@@ -41,6 +44,24 @@ function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T
         return save(fn * ".jld2", CGCs)
     end
 
+    return CGCs
+end
+
+
+function generate_CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+    @debug "Generating CGCs: $s1 ⊗ $s2"
+    CGCs =  _CGC(T, s1, s2, s3)
+    fn = cgc_cachepath(s1, s2, T)
+    isdir(dirname(fn)) || mkpath(dirname(fn))
+
+    ks3 = _key(s3)
+    mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+        return jldopen(fn * ".jld2", "a+") do file
+            if !haskey(file, ks3) 
+                file[ks3] = CGCs
+            end
+    	end
+    end
     return CGCs
 end
 
@@ -106,7 +127,7 @@ function ram_cache_info(io::IO=stdout)
     return nothing
 end
 
-function disk_cache_info(io::IO=stdout)
+function disk_cache_info(io::IO=stdout; clean = false)
     if !isdir(CGC_CACHE_PATH) || isempty(readdir(CGC_CACHE_PATH))
         println("CGC disk cache is empty.")
         return nothing
@@ -124,8 +145,16 @@ function disk_cache_info(io::IO=stdout)
             n_entries = 0
             for (root, _, files) in walkdir(fldr_T)
                 for f in files
-                    n_bytes += filesize(joinpath(root, f))
-                    n_entries += jldopen(file -> length(keys(file)), joinpath(root, f), "r")
+                    ##Ensure that the process continues if some file are corrupted. Added the option (off by default) of removing the stale/incorrect files.
+                    try
+                         n_entries += jldopen(file -> length(keys(file)), joinpath(root, f), "r")
+                         n_bytes += filesize(joinpath(root, f))
+                    catch e
+                         println(io, "Error in file $(joinpath(root, f)) : $e")                   
+                         if clean
+                             rm(joinpath(root, f), force=true)
+                         end
+                    end
                 end
             end
             println(io,

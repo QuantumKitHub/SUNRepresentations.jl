@@ -23,10 +23,12 @@ function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where
         # if the key is not in the cache, check if it is in a file
         result = tryread(T, s1, s2, s3)
         isnothing(result) || return result
-
+        
+        ##Prev
+        ##CGCs = generate_all_CGCs(T, s1, s2)
+        ##return CGCs[_key(s3)]
         # if not, compute it
-        CGCs = generate_all_CGCs(T, s1, s2)
-        return CGCs[_key(s3)]
+        return generate_CGC(T, s1, s2, s3)
     end
 end
 
