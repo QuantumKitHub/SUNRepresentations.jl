@@ -15,7 +15,7 @@ end
 function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
     fn = cgc_cachepath(s1, s2, T) * ".jld2"
     isfile(fn) || return nothing
-    
+
     return mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
         try
             return jldopen(fn, "r"; parallel_read=true) do file
@@ -30,8 +30,15 @@ function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) w
     return nothing
 end
 
-#= wait at most 1 min before deciding to overwrite. This should avoid deadlocking if a
-process started writing but got killed before removing the pidfile. =#
+#= 
+Wait at most 1 min before deciding to overwrite.
+This should avoid deadlocking if a process started writing but got killed before removing the pidfile.
+=#
+"""
+    const _PID_STALE_AGE = 60.0
+
+Timeout for stale PID files in seconds.
+"""
 const _PID_STALE_AGE = 60.0
 
 function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T,N}
@@ -47,20 +54,20 @@ function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T
     return CGCs
 end
 
-
-function generate_CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+function generate_CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N},
+                      s3::SUNIrrep{N}) where {T,N}
     @debug "Generating CGCs: $s1 ⊗ $s2"
-    CGCs =  _CGC(T, s1, s2, s3)
+    CGCs = _CGC(T, s1, s2, s3)
     fn = cgc_cachepath(s1, s2, T)
     isdir(dirname(fn)) || mkpath(dirname(fn))
 
     ks3 = _key(s3)
     mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
         return jldopen(fn * ".jld2", "a+") do file
-            if !haskey(file, ks3) 
+            if !haskey(file, ks3)
                 file[ks3] = CGCs
             end
-    	end
+        end
     end
     return CGCs
 end
@@ -127,7 +134,12 @@ function ram_cache_info(io::IO=stdout)
     return nothing
 end
 
-function disk_cache_info(io::IO=stdout; clean = false)
+"""
+    disk_cache_info([io=stdout]; clean=false)
+
+Print information about the CGC disk cache to `io`. If `clean=true`, remove any corrupted files.
+"""
+function disk_cache_info(io::IO=stdout; clean=false)
     if !isdir(CGC_CACHE_PATH) || isempty(readdir(CGC_CACHE_PATH))
         println("CGC disk cache is empty.")
         return nothing
@@ -145,15 +157,16 @@ function disk_cache_info(io::IO=stdout; clean = false)
             n_entries = 0
             for (root, _, files) in walkdir(fldr_T)
                 for f in files
-                    ##Ensure that the process continues if some file are corrupted. Added the option (off by default) of removing the stale/incorrect files.
+                    # wrap in try/catch to avoid stopping the loop if a file is corrupted
                     try
-                         n_entries += jldopen(file -> length(keys(file)), joinpath(root, f), "r")
-                         n_bytes += filesize(joinpath(root, f))
+                        n_entries += jldopen(file -> length(keys(file)), joinpath(root, f),
+                                             "r")
+                        n_bytes += filesize(joinpath(root, f))
                     catch e
-                         println(io, "Error in file $(joinpath(root, f)) : $e")                   
-                         if clean
-                             rm(joinpath(root, f), force=true)
-                         end
+                        println(io, "Error in file $(joinpath(root, f)) : $e")
+                        if clean
+                            rm(joinpath(root, f); force=true)
+                        end
                     end
                 end
             end
