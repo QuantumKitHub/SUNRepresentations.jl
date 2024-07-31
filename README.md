@@ -43,7 +43,7 @@ CGC disk cache info:
 ```
 
 The values are stored at `SUNRepresentations.CGC_CACHE_PATH`, which is a package-wide
-scratchspace. Each file `CGC/N/T/s1/s2.jld2` contains all coefficients with datatype `T` for
+scratchspace. Each file `CGC/N/T/s1/s2.jld2` contains coefficients with datatype `T` for
 the fusion of the `SU(N)` irreps `s1 ⊗ s2 → s3`, where `s3` runs over all possible fusion
 channels. The folder structure is as follows:
 
