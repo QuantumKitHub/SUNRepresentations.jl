@@ -13,12 +13,12 @@ function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T=Float64) where {N}
 end
 
 function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
-    fn = cgc_cachepath(s1, s2, T) * ".jld2"
-    isfile(fn) || return nothing
+    fn = cgc_cachepath(s1, s2, T)
+    isfile(fn * ".jld2") || return nothing
 
     return mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
         try
-            return jldopen(fn, "r"; parallel_read=true) do file
+            return jldopen(fn * ".jld2", "r"; parallel_read=true) do file
                 @debug "loaded CGC from disk: $s1 ⊗ $s2 → $s3"
                 !haskey(file, _key(s3)) && return nothing
                 return file[_key(s3)]::SparseArray{T,4}
