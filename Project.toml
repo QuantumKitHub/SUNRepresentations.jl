@@ -24,7 +24,7 @@ SUNRepresentationsLatexifyExt = "Latexify"
 [compat]
 Aqua = "0.6, 0.7, 0.8"
 Combinatorics = "1"
-JLD2 = "0.4"
+JLD2 = "0.4, 0.5"
 LRUCache = "1.6"
 Latexify = "0.16"
 LinearAlgebra = "1"
