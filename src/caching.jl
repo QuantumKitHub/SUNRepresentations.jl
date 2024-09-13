@@ -43,14 +43,7 @@ const _PID_STALE_AGE = 60.0
 
 function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T,N}
     @debug "Generating CGCs: $s1 ⊗ $s2"
-    CGCs = Dict(_key(s3) => _CGC(T, s1, s2, s3) for s3 in s1 ⊗ s2)
-    fn = cgc_cachepath(s1, s2, T)
-    isdir(dirname(fn)) || mkpath(dirname(fn))
-
-    mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
-        return save(fn * ".jld2", CGCs)
-    end
-
+    CGCs = Dict(_key(s3) => CGC(T, s1, s2, s3) for s3 in s1 ⊗ s2)
     return CGCs
 end
 
