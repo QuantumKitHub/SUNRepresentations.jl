@@ -1,20 +1,21 @@
-export SUNIrrep
-
 # is this type piracy?
 const SU₃ = SU{3}
 const SU₄ = SU{4}
 const SU₅ = SU{5}
-TensorKit.type_repr(::Type{SU₃}) = "SU₃"
-TensorKit.type_repr(::Type{SU₄}) = "SU₄"
-TensorKit.type_repr(::Type{SU₅}) = "SU₅"
-Base.getindex(::TensorKit.IrrepTable, ::Type{SU{N}}) where {N} = SUNIrrep{N}
+TensorKitSectors.type_repr(::Type{SU₃}) = "SU₃"
+TensorKitSectors.type_repr(::Type{SU₄}) = "SU₄"
+TensorKitSectors.type_repr(::Type{SU₅}) = "SU₅"
+Base.getindex(::TensorKitSectors.IrrepTable, ::Type{SU{N}}) where {N} = SUNIrrep{N}
 
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where {N} = SUNIrrep{N}(I)
 Base.convert(::Type{SUNIrrep{N}}, I::Vector{Int}) where {N} = SUNIrrep{N}(I)
 Base.convert(::Type{SUNIrrep{N}}, I::AbstractString) where {N} = SUNIrrep{N}(I)
-Base.IteratorSize(::Type{TensorKit.SectorValues{T}}) where {T<:SUNIrrep} = Base.IsInfinite()
+function Base.IteratorSize(::Type{TensorKitSectors.SectorValues{T}}) where {T<:SUNIrrep}
+    return Base.IsInfinite()
+end
 
-function Base.iterate(::TensorKit.SectorValues{SUNIrrep{N}}, I=ntuple(zero, N)) where {N}
+function Base.iterate(::TensorKitSectors.SectorValues{SUNIrrep{N}},
+                      I=ntuple(zero, N)) where {N}
     s = SUNIrrep(I)
     k = N - 1
     while k > 1 && I[k] == I[k - 1]
@@ -32,24 +33,28 @@ Base.hash(s::SUNIrrep, h::UInt) = hash(s.I, h)
 Base.conj(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
 Base.one(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
 
-TensorKit.FusionStyle(::Type{SUNIrrep{N}}) where {N} = TensorKit.GenericFusion()
-Base.isreal(::Type{<:SUNIrrep}) = true
-TensorKit.BraidingStyle(::Type{<:SUNIrrep}) = TensorKit.Bosonic()
-
-function TensorKit.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
-    return TensorKit.SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))
+function TensorKitSectors.FusionStyle(::Type{SUNIrrep{N}}) where {N}
+    return TensorKitSectors.GenericFusion()
 end
-function TensorKit.Nsymbol(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {N}
+Base.isreal(::Type{<:SUNIrrep}) = true
+TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = TensorKitSectors.Bosonic()
+
+function TensorKitSectors.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
+    return TensorKitSectors.SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))
+end
+function TensorKitSectors.Nsymbol(s1::SUNIrrep{N}, s2::SUNIrrep{N},
+                                  s3::SUNIrrep{N}) where {N}
     return get(directproduct(s1, s2), s3, 0)
 end
 
-function TensorKit.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {N}
+function TensorKitSectors.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N},
+                                       s3::SUNIrrep{N}) where {N}
     return CGC(Float64, s1, s2, s3)
 end
 
 const FCACHE = LRU{Int,Any}(; maxsize=10)
-function TensorKit.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
-                           d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where {N}
+function TensorKitSectors.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
+                                  d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where {N}
     key = (a, b, c, d, e, f)
     K = typeof(key)
     V = Array{Float64,4}
@@ -81,7 +86,7 @@ function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
 end
 
 const RCACHE = LRU{Int,Any}(; maxsize=10)
-function TensorKit.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
+function TensorKitSectors.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
     key = (a, b, c)
     K = typeof(key)
     V = Array{Float64,2}

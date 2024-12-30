@@ -4,8 +4,7 @@ using TensorOperations
 using SparseArrayKit
 using RationalRoots
 using LinearAlgebra
-using TensorKit
-using TensorKit: SU, fusiontensor, Nsymbol
+using TensorKitSectors
 using LRUCache
 using Scratch, Preferences
 using JLD2, Pidfile
@@ -16,7 +15,7 @@ export SU, SU₃, SU₄, SU₅, SU3Irrep, SU4Irrep, SU5Irrep
 export dynkin_label, congruency
 
 """
-    struct SUNIrrep{N} <: TensorKit.AbstractIrrep{SU{N}}
+    struct SUNIrrep{N} <: AbstractIrrep{SU{N}}
 
 The irrep of SU(N) with highest weight `I`.
 
@@ -36,7 +35,7 @@ required to uniquely identify the irrep.
 
 Constructs the `SU{N}` irrep with highest weight `a = [a₁, a₂, …, aₙ₋₁]`.
 """
-struct SUNIrrep{N} <: TensorKit.AbstractIrrep{SU{N}}
+struct SUNIrrep{N} <: AbstractIrrep{SU{N}}
     I::NTuple{N,Int}
 end
 
@@ -81,7 +80,7 @@ _normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
 Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(s, f)
 weight(s::SUNIrrep) = getfield(s, :I)
 
-function TensorKit.dim(s::SUNIrrep)
+function TensorKitSectors.dim(s::SUNIrrep)
     N = s.N
     I = weight(s)
     dim = 1 // 1
