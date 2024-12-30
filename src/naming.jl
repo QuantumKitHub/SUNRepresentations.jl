@@ -16,7 +16,7 @@ function Base.show(io::IO, s::SUNIrrep)
     if get(io, :typeinfo, nothing) === typeof(s)
         print(io, name)
     else
-        print(io, TensorKit.type_repr(typeof(s)), "(", name, ")")
+        print(io, TensorKitSectors.type_repr(typeof(s)), "(", name, ")")
     end
     return nothing
 end

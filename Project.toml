@@ -1,7 +1,7 @@
 name = "SUNRepresentations"
 uuid = "1a50b95c-7aac-476d-a9ce-2bfc675fc617"
 authors = ["Maarten Van Damme <Maarten.VanDamme@UGent.be>, Jutho Haegeman <jutho.haegeman@ugent.be> and Lukas Devos <lukas.devos@UGent.be>"]
-version = "0.2.2"
+version = "0.3.0"
 
 [deps]
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
@@ -12,7 +12,7 @@ Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 RationalRoots = "308eb6b3-cc68-5ff3-9e97-c3c4da4fa681"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
 SparseArrayKit = "a9a3c162-d163-4c15-8926-b8794fbefed2"
-TensorKit = "07d1fe3e-3e46-537d-9eac-e9e13d0d4cec"
+TensorKitSectors = "13a9c161-d5da-41f0-bcbd-e1a08ae0647f"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 
 [weakdeps]
@@ -22,7 +22,7 @@ Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 SUNRepresentationsLatexifyExt = "Latexify"
 
 [compat]
-Aqua = "0.6, 0.7, 0.8"
+Aqua = "0.8"
 Combinatorics = "1"
 JLD2 = "0.5"
 LRUCache = "1.6"
@@ -33,13 +33,14 @@ Preferences = "1.2"
 Random = "1"
 RationalRoots = "0.1 - 0.2"
 Scratch = "1"
-SparseArrayKit = "0.3"
-TensorKit = "0.11, 0.12"
-TensorOperations = "4"
+SparseArrayKit = "0.4"
+TensorKit = "0.13, 0.14"
+TensorKitSectors = "0.1.1"
+TensorOperations = "5"
 Test = "1"
 TestExtras = "0.2"
 TupleTools = "1.4"
-julia = "1.6"
+julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
