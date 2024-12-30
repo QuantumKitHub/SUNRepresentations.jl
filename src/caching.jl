@@ -1,11 +1,14 @@
-const CGCKEY{N} = NTuple{3,SUNIrrep{N}}
-const CGCCache{N,T} = LRU{CGCKEY{N},SparseArray{T,4}}
+const CGCKey{N} = NTuple{3,SUNIrrep{N}}
+
+"""
+    CGC_CACHE = LRU{CGCKey,SparseArray{Float64,4}}(; maxsize=100_000)
+
+Global cache for storing Clebsch-Gordan Coefficients.
+"""
+const CGC_CACHE = LRU{CGCKey,SparseArray{Float64,4}}(; maxsize=100_000)
 
 # convert sector to string key
 _key(s::SUNIrrep) = string(weight(s))
-
-# List of CGC caches for each N and T
-const CGC_CACHES = LRU{Any,CGCCache}(; maxsize=10)
 
 const CGC_CACHE_PATH = @get_scratch!("CGC")
 function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T=Float64) where {N}
@@ -115,14 +118,12 @@ function clear_disk_cache!()
 end
 
 function ram_cache_info(io::IO=stdout)
-    if isempty(CGC_CACHES)
-        println("CGC RAM cache is empty.")
-        return nothing
-    end
-    println(io, "CGC RAM cache info:")
-    println(io, "===================")
-    for ((N, T), cache) in CGC_CACHES
-        println(io, "* SU($N) - $T - $(LRUCache.cache_info(cache))")
+    if isempty(CGC_CACHE)
+        println(io, "CGC RAM cache is empty.")
+    else
+        info = LRUCache.cache_info(CGC_CACHE)
+        println(io, "CGC RAM cache info:")
+        println(io, info)
     end
     return nothing
 end

@@ -18,14 +18,16 @@ end
 
 CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
 function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
-    cache = get!(() -> CGCCache{N,T}(; maxsize=100_000), CGC_CACHES, (N, T))::CGCCache{N,T}
-    return get!(cache, (s1, s2, s3)) do
-        # if the key is not in the cache, check if it is in a file
-        result = tryread(T, s1, s2, s3)
+    return _get_CGC(T, (s1, s2, s3))
+end
+
+@noinline function _get_CGC(::Type{T}, @nospecialize(key)) where {T}
+    d::SparseArray{T,4} = get!(CGC_CACHE, key) do
+        result = tryread(T, key...)
         isnothing(result) || return result
-        # if not, compute it
-        return generate_CGC(T, s1, s2, s3)
+        return generate_CGC(T, key...)
     end
+    return d
 end
 
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
