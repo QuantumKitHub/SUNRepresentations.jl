@@ -14,18 +14,22 @@ function Base.IteratorSize(::Type{TensorKitSectors.SectorValues{T}}) where {T<:S
     return Base.IsInfinite()
 end
 
-function Base.iterate(::TensorKitSectors.SectorValues{SUNIrrep{N}},
-                      I=ntuple(zero, N)) where {N}
-    s = SUNIrrep(I)
-    k = N - 1
-    while k > 1 && I[k] == I[k - 1]
-        k -= 1
-    end
-    I = Base.setindex(I, I[k] + 1, k)
-    for l in (k + 1):(N - 1)
-        I = Base.setindex(I, 0, l)
-    end
-    return s, I
+function Base.iterate(iter::TensorKitSectors.SectorValues{<:SUNIrrep}, i::Int=1)
+    return iter[i], i + 1
+end
+
+# linear order of sectors: use manhattan ordering of dynkin labels (0-based)
+function Base.getindex(::TensorKitSectors.SectorValues{SUNIrrep{N}}, i::Int) where {N}
+    sz = ntuple(Returns(typemax(Int)), N - 1)
+    I = TensorKitSectors.manhattan_to_multidimensional_index(i, sz)
+    dk_label = I .- 1 # dynkin labels are 0-based
+    return SUNIrrep{N}(reverse(cumsum(reverse(dk_label)))..., 0)
+end
+function TensorKitSectors.findindex(::TensorKitSectors.SectorValues{SUNIrrep{N}},
+                                    s::SUNIrrep{N}) where {N}
+    I = dynkin_label(s) .+ 1
+    sz = ntuple(Returns(typemax(Int)), N - 1)
+    return TensorKitSectors.to_manhattan_index(I, sz)
 end
 
 Base.:(==)(s::SUNIrrep, t::SUNIrrep) = ==(s.I, t.I)

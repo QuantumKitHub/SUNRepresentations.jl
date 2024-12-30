@@ -73,7 +73,15 @@ const SU3Irrep = SUNIrrep{3}
 const SU4Irrep = SUNIrrep{4}
 const SU5Irrep = SUNIrrep{5}
 
-Base.isless(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N} = isless(s1.I, s2.I)
+function Base.isless(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
+    I1 = dynkin_label(s1)
+    I2 = dynkin_label(s2)
+    d1 = sum(I1)
+    d2 = sum(I2)
+    d1 < d2 && return true
+    d1 > d2 && return false
+    return isless(I1, I2)
+end
 
 _normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
 
