@@ -33,24 +33,15 @@ for I in sectorlist
         sprev = one(I)
         for (i, s) in enumerate(values(I))
             @test !isless(s, sprev) # confirm compatibility with sort order
-            if Base.IteratorSize(values(I)) == Base.IsInfinite() && I <: ProductSector
-                @test_throws ArgumentError values(I)[i]
-                @test_throws ArgumentError TensorKit.findindex(values(I), s)
-            elseif hasmethod(Base.getindex, Tuple{typeof(values(I)),Int})
-                @test s == @constinferred (values(I)[i])
-                @test TensorKit.findindex(values(I), s) == i
-            end
+            @test s == @constinferred (values(I)[i])
+            @test TensorKit.findindex(values(I), s) == i
             sprev = s
             i >= 10 && break
         end
         @test one(I) == first(values(I))
-        if Base.IteratorSize(values(I)) == Base.IsInfinite() && I <: ProductSector
-            @test_throws ArgumentError TensorKit.findindex(values(I), one(I))
-        elseif hasmethod(Base.getindex, Tuple{typeof(values(I)),Int})
-            @test (@constinferred TensorKit.findindex(values(I), one(I))) == 1
-            for s in smallset(I)
-                @test (@constinferred values(I)[TensorKit.findindex(values(I), s)]) == s
-            end
+        @test (@constinferred TensorKit.findindex(values(I), one(I))) == 1
+        for s in smallset(I)
+            @test (@constinferred values(I)[TensorKit.findindex(values(I), s)]) == s
         end
     end
     @timedtestset "Sector $I: fusion tensor and F-move and R-move" begin
