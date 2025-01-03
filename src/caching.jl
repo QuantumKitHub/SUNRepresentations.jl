@@ -1,11 +1,9 @@
-const CGCKey{N} = NTuple{3,SUNIrrep{N}}
-
 """
-    CGC_CACHE = LRU{CGCKey,SparseArray{Float64,4}}(; maxsize=100_000)
+    CGC_CACHE = LRU{Any,SparseArray{Float64,4}}(; maxsize=100_000)
 
 Global cache for storing Clebsch-Gordan Coefficients.
 """
-const CGC_CACHE = LRU{CGCKey,SparseArray{Float64,4}}(; maxsize=100_000)
+const CGC_CACHE = LRU{Any,SparseArray{Float64,4}}(; maxsize=100_000)
 
 # convert sector to string key
 _key(s::SUNIrrep) = string(weight(s))

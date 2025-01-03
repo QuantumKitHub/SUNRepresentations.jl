@@ -1,4 +1,4 @@
-# is this type piracy?
+# This is type piracy:
 const SU₃ = SU{3}
 const SU₄ = SU{4}
 const SU₅ = SU{5}
@@ -10,23 +10,19 @@ Base.getindex(::TensorKitSectors.IrrepTable, ::Type{SU{N}}) where {N} = SUNIrrep
 Base.convert(::Type{SUNIrrep{N}}, I::NTuple{N,Int}) where {N} = SUNIrrep{N}(I)
 Base.convert(::Type{SUNIrrep{N}}, I::Vector{Int}) where {N} = SUNIrrep{N}(I)
 Base.convert(::Type{SUNIrrep{N}}, I::AbstractString) where {N} = SUNIrrep{N}(I)
-function Base.IteratorSize(::Type{TensorKitSectors.SectorValues{T}}) where {T<:SUNIrrep}
-    return Base.IsInfinite()
-end
+Base.IteratorSize(::Type{SectorValues{T}}) where {T<:SUNIrrep} = Base.IsInfinite()
 
-function Base.iterate(iter::TensorKitSectors.SectorValues{<:SUNIrrep}, i::Int=1)
-    return iter[i], i + 1
-end
+Base.iterate(iter::SectorValues{<:SUNIrrep}, i::Int=1) = iter[i], i + 1
 
 # linear order of sectors: use manhattan ordering of dynkin labels (0-based)
-function Base.getindex(::TensorKitSectors.SectorValues{SUNIrrep{N}}, i::Int) where {N}
+# TODO: all sizes are infinite so manhattan indexing can be sped up if need be
+function Base.getindex(::SectorValues{SUNIrrep{N}}, i::Int) where {N}
     sz = ntuple(Returns(typemax(Int)), N - 1)
     I = TensorKitSectors.manhattan_to_multidimensional_index(i, sz)
     dk_label = I .- 1 # dynkin labels are 0-based
     return SUNIrrep{N}(reverse(cumsum(reverse(dk_label)))..., 0)
 end
-function TensorKitSectors.findindex(::TensorKitSectors.SectorValues{SUNIrrep{N}},
-                                    s::SUNIrrep{N}) where {N}
+function TensorKitSectors.findindex(::SectorValues{SUNIrrep{N}}, s::SUNIrrep{N}) where {N}
     I = dynkin_label(s) .+ 1
     sz = ntuple(Returns(typemax(Int)), N - 1)
     return TensorKitSectors.to_manhattan_index(I, sz)
@@ -37,14 +33,12 @@ Base.hash(s::SUNIrrep, h::UInt) = hash(s.I, h)
 Base.conj(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
 Base.one(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
 
-function TensorKitSectors.FusionStyle(::Type{SUNIrrep{N}}) where {N}
-    return TensorKitSectors.GenericFusion()
-end
+TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
+TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic()
 Base.isreal(::Type{<:SUNIrrep}) = true
-TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = TensorKitSectors.Bosonic()
 
 function TensorKitSectors.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
-    return TensorKitSectors.SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))
+    return SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))
 end
 function TensorKitSectors.Nsymbol(s1::SUNIrrep{N}, s2::SUNIrrep{N},
                                   s3::SUNIrrep{N}) where {N}
