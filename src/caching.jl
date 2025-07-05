@@ -175,6 +175,9 @@ function precompute_disk_cache_F(N, a_max::Int=1; force=false)
     return nothing
 end
 
+# R symbols
+# ---------
+
 """
     R_CACHE = LRU{Any,Matrix{Float64}}(; maxsize=100_000)
 
@@ -182,6 +185,74 @@ Global cache for storing R-symbols.
 """
 const R_CACHE = LRU{Any,Matrix{Float64}}(; maxsize=100_000)
 const R_CACHE_PATH = @get_scratch!("Rsymbol")
+
+function r_cachepath(a::I, b::I) where {N,I<:SUNIrrep{N}}
+    return joinpath(R_CACHE_PATH, string(N), join(_key.((a, b)), '_'))
+end
+
+function tryread_R(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
+    fn = r_cachepath(a, b)
+    isfile(fn * ".jld2") || return nothing
+
+    R = mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+        try
+            return jldopen(fn * ".jld2", "r"; parallel_read=true) do file
+                !haskey(file, _key(c)) && return nothing
+                return file[_key(c)]::Matrix{Float64}
+            end
+        catch
+            return nothing
+        end
+    end
+    isnothing(R) || @debug "loaded Rsymbol from disk: $a $b $c"
+    return R
+end
+
+function generate_R(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
+    @debug "Generating Rsymbol: $a $b $c"
+    R = _Rsymbol(a, b, c)
+    fn = r_cachepath(a, b)
+    isdir(dirname(fn)) || mkpath(dirname(fn))
+
+    key = _key(c)
+    mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+        return jldopen(fn * ".jld2", "a+") do file
+            if !haskey(file, key)
+                file[key] = R
+            end
+        end
+    end
+
+    return R
+end
+
+function generate_all_Rs(a::SUNIrrep{N}, b::SUNIrrep{N}) where {N}
+    @debug "Generating all Rs: $a $b"
+    cs = ⊗(a, b)
+    Rs = Dict(_key(c) => Rsymbol(a, b, c) for c in cs)
+    return Rs
+end
+
+"""
+    precompute_disk_cache_R(N, a_max, [T=Float64]; force=false)
+
+Populate the disk cache for ``SU(N)`` with eltype `T` with all Rsymbols with Dynkin labels up to
+``a_max``.
+Will not recompute Rsymbols that are already in the cache, unless `force=true`.
+"""
+function precompute_disk_cache_R(N, a_max::Int=1; force=false)
+    all_irreps = all_dynkin(SUNIrrep{N}, a_max)
+    for a in all_irreps, b in all_irreps
+        if force || !isfile(r_cachepath(a, b) * ".jld2")
+            for c in ⊗(a, b)
+                maximum(dynkin_label(c)) ≤ a_max || continue
+                generate_R(a, b, c)
+            end
+        end
+    end
+    disk_cache_R_info()
+    return nothing
+end
 
 """
     clear_disk_cache!([N, [T]])
