@@ -53,15 +53,16 @@ end
 const FCACHE = LRU{Int,Any}(; maxsize=10)
 function TensorKitSectors.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
                                   d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where {N}
-    key = (a, b, c, d, e, f)
-    K = typeof(key)
-    V = Array{Float64,4}
-    cache::LRU{K,V} = get!(FCACHE, N) do
-        return LRU{K,V}(; maxsize=10^5)
+    return _get_F((a, b, c, d, e, f))
+end
+
+@noinline function _get_F(@nospecialize(key))
+    d::Array{Float64,4} = get!(F_CACHE, key) do
+        result = tryread_F(key...)
+        isnothing(result) || return result
+        return generate_F(key...)
     end
-    return get!(cache, key) do
-        return _Fsymbol(a, b, c, d, e, f)
-    end
+    return d
 end
 function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
                   d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where {N}
