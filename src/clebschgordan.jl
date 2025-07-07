@@ -108,6 +108,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     catch err
         err isa LAPACKException || rethrow(err)
         # try again with more stable algorithm
+        @warn "LAPACK SDD failed, retrying with SVD" exception = err
         reduced_eqs = convert(Array, eqs[rows, cols])
         _nullspace!(reduced_eqs; atol=TOL_NULLSPACE, alg=LinearAlgebra.QRIteration())
     end
