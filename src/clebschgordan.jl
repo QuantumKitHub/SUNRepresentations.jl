@@ -103,7 +103,16 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     end
     rows = unique!(sort!(rows))
     reduced_eqs = convert(Array, eqs[rows, cols])
-    solutions = _nullspace!(reduced_eqs; atol=TOL_NULLSPACE)
+    solutions = try
+        _nullspace!(reduced_eqs; atol=TOL_NULLSPACE)
+    catch err
+        err isa LAPACKException || rethrow(err)
+        # try again with more stable algorithm
+        @warn "LAPACK SDD failed, retrying with SVD" exception = err
+        reduced_eqs = convert(Array, eqs[rows, cols])
+        _nullspace!(reduced_eqs; atol=TOL_NULLSPACE, alg=LinearAlgebra.QRIteration())
+    end
+
     N123 = size(solutions, 2)
 
     @assert N123 == directproduct(s1, s2)[s3]
@@ -286,11 +295,12 @@ function findabsmax(a)
 end
 
 function _nullspace!(A::AbstractMatrix; atol::Real=0.0,
+                     alg=LinearAlgebra.DivideAndConquer(),
                      rtol::Real=(min(size(A)...) * eps(real(float(one(eltype(A)))))) *
                                 iszero(atol))
     m, n = size(A)
     (m == 0 || n == 0) && return Matrix{eltype(A)}(I, n, n)
-    SVD = svd!(A; full=true, alg=LinearAlgebra.QRIteration())
+    SVD = svd!(A; full=true, alg)
     tol = max(atol, SVD.S[1] * rtol)
     indstart = sum(s -> s .> tol, SVD.S) + 1
     return copy(SVD.Vt[indstart:end, :]')

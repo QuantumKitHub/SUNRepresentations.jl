@@ -142,7 +142,7 @@ end
 
 function creation(s::SUNIrrep{N}) where {N}
     d = dim(s)
-    table = Dict{GTPattern,Int}(m => i for (i, m) in enumerate(basis(s)))
+    table = Dict(m => i for (i, m) in enumerate(basis(s)))
     result = [SparseArray{RationalRoot{Int}}(undef, (d, d)) for i in 1:(N - 1)]
     @inbounds for (m, i) in table
         for l in 1:(N - 1), k in 1:l
