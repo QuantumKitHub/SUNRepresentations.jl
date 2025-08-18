@@ -169,3 +169,14 @@ function creation(s::SUNIrrep{N}) where {N}
 end
 
 annihilation(s::SUNIrrep) = [SparseArray(op') for op in creation(s)]
+
+function cartan_operators(s::SUNIrrep{N}) where {N}
+    d = dim(s)
+    result = [SparseArray{RationalRoot{Int}}(undef, (d, d)) for i in 1:(N - 1)]
+    for (i, m) in enumerate(basis(s))
+        for (l, W) in enumerate(Zweight(m))
+            result[l][i, i] = W
+        end
+    end
+    return result
+end

@@ -8,11 +8,14 @@ using TensorKitSectors
 using LRUCache
 using Scratch, Preferences
 using JLD2, Pidfile
+using TensorKit
 
-export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight, dim
+export SUNIrrep, basis, weight, Zweight, creation, annihilation, cartan_operators,
+       highest_weight, dim
 export directproduct, CGC
 export SU, SU₃, SU₄, SU₅, SU3Irrep, SU4Irrep, SU5Irrep
 export dynkin_label, congruency
+export reduced_CGC
 
 """
     struct SUNIrrep{N} <: AbstractIrrep{SU{N}}
@@ -133,5 +136,6 @@ include("caching.jl")
 include("clebschgordan.jl")
 include("sector.jl")
 include("naming.jl")
+include("bootstrap.jl")
 
 end
