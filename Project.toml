@@ -35,7 +35,7 @@ RationalRoots = "0.1 - 0.2"
 Scratch = "1"
 SparseArrayKit = "0.4"
 TensorKit = "0.14.1"
-TensorKitSectors = "0.1.1"
+TensorKitSectors = "0.1.1, 0.2"
 TensorOperations = "5"
 Test = "1"
 TestExtras = "0.2"
@@ -53,5 +53,4 @@ TestExtras = "5ed8adda-3752-4e41-b88a-e8b09835ee3a"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [targets]
-test = ["Test", "Random", "Combinatorics", "TestExtras", "TensorKit", "TupleTools",
-        "Latexify", "Aqua"]
+test = ["Test", "Random", "Combinatorics", "TestExtras", "TensorKit", "TupleTools", "Latexify", "Aqua"]
