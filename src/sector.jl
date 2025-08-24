@@ -50,18 +50,18 @@ function TensorKitSectors.fusiontensor(s1::SUNIrrep{N}, s2::SUNIrrep{N},
     return CGC(Float64, s1, s2, s3)
 end
 
-const FCACHE = LRU{Int,Any}(; maxsize=10)
 function TensorKitSectors.Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
                                   d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where {N}
-    key = (a, b, c, d, e, f)
-    K = typeof(key)
-    V = Array{Float64,4}
-    cache::LRU{K,V} = get!(FCACHE, N) do
-        return LRU{K,V}(; maxsize=10^5)
+    return _get_F((a, b, c, d, e, f))
+end
+
+@noinline function _get_F(@nospecialize(key))
+    d::Array{Float64,4} = get!(F_CACHE, key) do
+        result = tryread_F(key...)
+        isnothing(result) || return result
+        return generate_F(key...)
     end
-    return get!(cache, key) do
-        return _Fsymbol(a, b, c, d, e, f)
-    end
+    return d
 end
 function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
                   d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}) where {N}
@@ -83,18 +83,19 @@ function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
     return Array(F)
 end
 
-const RCACHE = LRU{Int,Any}(; maxsize=10)
 function TensorKitSectors.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
-    key = (a, b, c)
-    K = typeof(key)
-    V = Array{Float64,2}
-    cache::LRU{K,V} = get!(RCACHE, N) do
-        return LRU{K,V}(; maxsize=10^5)
-    end
-    return get!(cache, key) do
-        return _Rsymbol(a, b, c)
-    end
+    return _get_R((a, b, c))
 end
+
+@noinline function _get_R(@nospecialize(key))
+    d::Matrix{Float64} = get!(R_CACHE, key) do
+        result = tryread_R(key...)
+        isnothing(result) || return result
+        return generate_R(key...)
+    end
+    return d
+end
+
 function _Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
     N1 = Nsymbol(a, b, c)
     N2 = Nsymbol(b, a, c)
