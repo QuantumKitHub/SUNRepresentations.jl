@@ -1,14 +1,14 @@
-const TOL_NULLSPACE = 1e-13
+const TOL_NULLSPACE = 1.0e-13
 # tolerance for nullspace
-const TOL_GAUGE = 1e-11
+const TOL_GAUGE = 1.0e-11
 # tolerance for gaugefixing should probably be bigger than that with which nullspace was determined
-const TOL_PURGE = 1e-14
+const TOL_PURGE = 1.0e-14
 # tolerance for dropping zeros
 
 function weightmap(basis)
     N = first(basis).N
     # basis could be a GTPatternIterator{N}, but also a Vector{GTPattern{N}}
-    weights = Dict{NTuple{N,Int},Vector{Int}}()
+    weights = Dict{NTuple{N, Int}, Vector{Int}}()
     for (i, m) in enumerate(basis)
         w = weight(m)
         push!(get!(weights, w, Int[]), i)
@@ -16,13 +16,13 @@ function weightmap(basis)
     return weights
 end
 
-CGC(s1::I, s2::I, s3::I) where {I<:SUNIrrep} = CGC(Float64, s1, s2, s3)
-function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+CGC(s1::I, s2::I, s3::I) where {I <: SUNIrrep} = CGC(Float64, s1, s2, s3)
+function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T, N}
     return _get_CGC(T, (s1, s2, s3))
 end
 
 @noinline function _get_CGC(::Type{T}, @nospecialize(key)) where {T}
-    d::SparseArray{T,4} = get!(CGC_CACHE, key) do
+    d::SparseArray{T, 4} = get!(CGC_CACHE, key) do
         result = tryread(T, key...)
         isnothing(result) || return result
         return generate_CGC(T, key...)
@@ -30,7 +30,7 @@ end
     return d
 end
 
-function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
+function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SUNIrrep}
     if isone(s1)
         @assert s2 == s3
         CGC = trivial_CGC(T, s2, true)
@@ -49,7 +49,7 @@ end
 gaugefix!(C) = first(qrpos!(cref!(C, TOL_GAUGE)))
 
 # special case for 1 ⊗ s -> s or s ⊗ 1 -> s
-function trivial_CGC(::Type{T}, s::SUNIrrep, isleft=true) where {T<:Real}
+function trivial_CGC(::Type{T}, s::SUNIrrep, isleft = true) where {T <: Real}
     d = dim(s)
     if isleft
         CGC = SparseArray{T}(undef, 1, d, d, 1)
@@ -67,7 +67,7 @@ end
 
 const _emptyindexlist = Vector{Int}()
 
-function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNIrrep}
+function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SUNIrrep}
     d1, d2, d3 = dim(s1), dim(s2), dim(s3)
     N = s1.N
 
@@ -104,13 +104,13 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     rows = unique!(sort!(rows))
     reduced_eqs = convert(Array, eqs[rows, cols])
     solutions = try
-        _nullspace!(reduced_eqs; atol=TOL_NULLSPACE)
+        _nullspace!(reduced_eqs; atol = TOL_NULLSPACE)
     catch err
         err isa LAPACKException || rethrow(err)
         # try again with more stable algorithm
         @warn "LAPACK SDD failed, retrying with SVD" exception = err
         reduced_eqs = convert(Array, eqs[rows, cols])
-        _nullspace!(reduced_eqs; atol=TOL_NULLSPACE, alg=LinearAlgebra.QRIteration())
+        _nullspace!(reduced_eqs; atol = TOL_NULLSPACE, alg = LinearAlgebra.QRIteration())
     end
 
     N123 = size(solutions, 2)
@@ -130,7 +130,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I<:SUNI
     return CGC
 end
 
-function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} where {N}
+function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} where {N}
     N123 = size(CGC, 4)
     T = eltype(CGC)
 
@@ -144,7 +144,7 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I<:SUNIrrep{N}} wher
 
     # reverse lexographic order: so all relevant parents should come earlier
     # and should thus have been solved
-    w3list = sort(collect(keys(map3)); rev=true)
+    w3list = sort(collect(keys(map3)); rev = true)
 
     # precompute some data
     wshift = div(sum(s1.I) + sum(s2.I) - sum(s3.I), N)
@@ -245,9 +245,11 @@ function qrpos!(C)
     return Q, R
 end
 
-function cref!(A::AbstractMatrix,
-               ɛ=eltype(A) <: Union{Rational,Integer} ? 0 :
-                 10 * length(A) * eps(norm(A, Inf)))
+function cref!(
+        A::AbstractMatrix,
+        ɛ = eltype(A) <: Union{Rational, Integer} ? 0 :
+            10 * length(A) * eps(norm(A, Inf))
+    )
     nr, nc = size(A)
     i = j = 1
     @inbounds while i <= nr && j <= nc
@@ -294,20 +296,22 @@ function findabsmax(a)
     return m, mi
 end
 
-function _nullspace!(A::AbstractMatrix; atol::Real=0.0,
-                     alg=LinearAlgebra.DivideAndConquer(),
-                     rtol::Real=(min(size(A)...) * eps(real(float(one(eltype(A)))))) *
-                                iszero(atol))
+function _nullspace!(
+        A::AbstractMatrix; atol::Real = 0.0,
+        alg = LinearAlgebra.DivideAndConquer(),
+        rtol::Real = (min(size(A)...) * eps(real(float(one(eltype(A)))))) *
+            iszero(atol)
+    )
     m, n = size(A)
     (m == 0 || n == 0) && return Matrix{eltype(A)}(I, n, n)
-    SVD = svd!(A; full=true, alg)
+    SVD = svd!(A; full = true, alg)
     tol = max(atol, SVD.S[1] * rtol)
     indstart = sum(s -> s .> tol, SVD.S) + 1
     return copy(SVD.Vt[indstart:end, :]')
 end
 
 # remove approximate zeros from sparse array
-function purge!(C::SparseArray; atol::Real=TOL_PURGE)
+function purge!(C::SparseArray; atol::Real = TOL_PURGE)
     filter!(((_, v),) -> abs(v) > atol, C.data)
     return C
 end
