@@ -247,8 +247,7 @@ end
 
 function cref!(
         A::AbstractMatrix,
-        ɛ = eltype(A) <: Union{Rational, Integer} ? 0 :
-            10 * length(A) * eps(norm(A, Inf))
+        ɛ = eltype(A) <: Union{Rational, Integer} ? 0 : 10 * length(A) * eps(norm(A, Inf))
     )
     nr, nc = size(A)
     i = j = 1
@@ -299,8 +298,7 @@ end
 function _nullspace!(
         A::AbstractMatrix; atol::Real = 0.0,
         alg = LinearAlgebra.DivideAndConquer(),
-        rtol::Real = (min(size(A)...) * eps(real(float(one(eltype(A)))))) *
-            iszero(atol)
+        rtol::Real = (min(size(A)...) * eps(real(float(one(eltype(A)))))) * iszero(atol)
     )
     m, n = size(A)
     (m == 0 || n == 0) && return Matrix{eltype(A)}(I, n, n)

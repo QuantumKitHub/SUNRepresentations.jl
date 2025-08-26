@@ -212,18 +212,13 @@ for I in sectorlist
                 Af2 = convert(SparseArray, f2)
                 Af0 = convert(
                     SparseArray,
-                    FusionTree(
-                        (f1.coupled, f2.coupled), c, (false, false), (),
-                        (μ,)
-                    )
+                    FusionTree((f1.coupled, f2.coupled), c, (false, false), (), (μ,))
                 )
                 _Af = TensorOperations.tensorcontract(
-                    1:(N + 2), Af1, [1:N; -1],
-                    Af0, [-1; N + 1; N + 2]
+                    1:(N + 2), Af1, [1:N; -1], Af0, [-1; N + 1; N + 2]
                 )
                 Af = TensorOperations.tensorcontract(
-                    1:(2N + 1), Af2, [N .+ (1:N); -1],
-                    _Af, [1:N; -1; 2N + 1]
+                    1:(2N + 1), Af2, [N .+ (1:N); -1], _Af, [1:N; -1; 2N + 1]
                 )
                 Af′ = zero(Af)
                 for (f, coeff) in trees1

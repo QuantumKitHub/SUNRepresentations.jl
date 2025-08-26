@@ -154,15 +154,12 @@ function disk_cache_info(io::IO = stdout; clean = false)
                     # wrap in try/catch to avoid stopping the loop if a file is corrupted
                     try
                         n_entries += jldopen(
-                            file -> length(keys(file)), joinpath(root, f),
-                            "r"
+                            file -> length(keys(file)), joinpath(root, f), "r"
                         )
                         n_bytes += filesize(joinpath(root, f))
                     catch e
                         println(io, "Error in file $(joinpath(root, f)) : $e")
-                        if clean
-                            rm(joinpath(root, f); force = true)
-                        end
+                        clean && rm(joinpath(root, f); force = true)
                     end
                 end
             end

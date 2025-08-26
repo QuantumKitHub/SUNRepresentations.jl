@@ -72,29 +72,19 @@ for I in sectorlist
         end
     end
     @timedtestset "Sector $I: Unitarity of F-move" begin
-        for a in smallset(I), b in smallset(I), c in smallset(I)
-            for d in ⊗(a, b, c)
-                es = collect(intersect(⊗(a, b), map(dual, ⊗(c, dual(d)))))
-                fs = collect(intersect(⊗(b, c), map(dual, ⊗(dual(d), a))))
-                Fblocks = Vector{Any}()
-                for e in es
-                    for f in fs
-                        Fs = Fsymbol(a, b, c, d, e, f)
-                        push!(
-                            Fblocks,
-                            reshape(
-                                Fs,
-                                (
-                                    size(Fs, 1) * size(Fs, 2),
-                                    size(Fs, 3) * size(Fs, 4),
-                                )
-                            )
-                        )
-                    end
-                end
-                F = hvcat(length(fs), Fblocks...)
-                @test F' * F ≈ one(F)
+        for a in smallset(I), b in smallset(I), c in smallset(I), d in ⊗(a, b, c)
+            es = collect(intersect(⊗(a, b), map(dual, ⊗(c, dual(d)))))
+            fs = collect(intersect(⊗(b, c), map(dual, ⊗(dual(d), a))))
+            Fblocks = Vector{Any}()
+            for e in es, f in fs
+                Fs = Fsymbol(a, b, c, d, e, f)
+                push!(
+                    Fblocks,
+                    reshape(Fs, (size(Fs, 1) * size(Fs, 2), size(Fs, 3) * size(Fs, 4)))
+                )
             end
+            F = hvcat(length(fs), Fblocks...)
+            @test F' * F ≈ one(F)
         end
     end
     @testset "Sector $I: Pentagon equation" begin

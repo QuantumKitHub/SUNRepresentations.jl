@@ -41,15 +41,13 @@ function TensorKitSectors.:⊗(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
     return SectorSet{SUNIrrep{N}}(keys(directproduct(s1, s2)))
 end
 function TensorKitSectors.Nsymbol(
-        s1::SUNIrrep{N}, s2::SUNIrrep{N},
-        s3::SUNIrrep{N}
+        s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}
     ) where {N}
     return get(directproduct(s1, s2), s3, 0)
 end
 
 function TensorKitSectors.fusiontensor(
-        s1::SUNIrrep{N}, s2::SUNIrrep{N},
-        s3::SUNIrrep{N}
+        s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}
     ) where {N}
     return CGC(Float64, s1, s2, s3)
 end
