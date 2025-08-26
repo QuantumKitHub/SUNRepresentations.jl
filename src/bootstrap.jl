@@ -156,7 +156,7 @@ function reduced_CGC(a::I, b::I, c::I) where {I <: SUNIrrep}
     Jmc = reduced_lowering_operators(c)
   
     Pw = highest_weight_projector(Vc, c)
-    while true
+    while dim(Pw) != 0
         @tensor begin
             CGCw[a b; c n] := CGC[a b; c' n] * Pw[c'; c]
             rhs[a b n; ad c] := Jma[ad a; a'] * CGCw[a' b; c n] + Jmb[ad b; b'] * CGCw[a b'; c n]
@@ -164,7 +164,6 @@ function reduced_CGC(a::I, b::I, c::I) where {I <: SUNIrrep}
         end
         @tensor CGC[a b; c n] += (rhs / eqs)[a b n; c]
         Pw = isometry(Vc, infimum(Vc, fuse(domain(Pw) ⊗ space(Jmc, 1)')))
-        dim(Pw) == 0 && break
     end
     return CGC
 end
