@@ -88,15 +88,13 @@ end
 function weight_space(V, a::SUNIrrep, w::Integer)
     I = (a.N == 3 ? SU2Irrep : SUNIrrep{a.N - 1}) ⊠ U1Irrep
     set = Set{I}()
-    @show hw = weight(highest_weight(a))
+    hw = weight(highest_weight(a))
     for m in basis(a)
         c = reduced_charge(m)
-        @show c abs.(weight(m) .- hw)
         if sum(abs.(weight(m) .- hw)) == 2w
             push!(set, c)
         end
     end
-    @show set w
     return Vect[I](c => blockdim(V, c) for c in set)
 end
 weight_projector(V, c, w) = isometry(V, weight_space(V, c, w))
@@ -149,11 +147,7 @@ function reduced_CGC(a::I, b::I, c::I) where {I <: SUNIrrep}
     # embed into entire space
     CG_w = P_hw * rightnull(HW_eq)'
     charge, bl = only(blocks(CG_w))
-    display(bl)
-    println()
     gaugefix!(bl)
-    display(bl)
-    println()
     block(CGC, charge) .= bl 
     
     # lower weights: CG[w-1] * Jmc = (Jma ⊗ 1 + 1 ⊗ Jmb) * CG[w]
