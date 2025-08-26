@@ -145,7 +145,7 @@ function reduced_CGC(a::I, b::I, c::I) where {I <: SUNIrrep}
     @tensor HW_eq[ad a b; c] := Jpa[ad a; a'] * P_hw[a' b; c] + Jpb[ad b; b'] * P_hw[a b'; c]
 
     # embed into entire space
-    CG_w = P_hw * rightnull(HW_eq)'
+    CG_w = P_hw * rightnull(HW_eq; alg=SDD())'
     charge, bl = only(blocks(CG_w))
     gaugefix!(bl)
     block(CGC, charge) .= bl 
