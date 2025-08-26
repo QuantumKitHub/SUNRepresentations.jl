@@ -73,14 +73,22 @@ function _Fsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
     (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) && return fill(0.0, N1, N2, N3, N4)
 
     # computing first diagonal element
-    A = fusiontensor(a, b, e)
-    B = fusiontensor(e, c, d)[:, :, 1, :]
-    C = fusiontensor(b, c, f)
-    D = fusiontensor(a, f, d)[:, :, 1, :]
+    # A = fusiontensor(a, b, e)
+    # B = fusiontensor(e, c, d)[:, :, 1, :]
+    # C = fusiontensor(b, c, f)
+    # D = fusiontensor(a, f, d)[:, :, 1, :]
+    A = reduced_CGC(a, b, e)
+    B = reduced_CGC(e, c, d)
+    C = reduced_CGC(b, c, f)
+    D = reduced_CGC(a, f, d)
 
-    @tensor F[-1, -2, -3, -4] := conj(D[1, 5, -4]) * conj(C[2, 4, 5, -3]) *
-                                 A[1, 2, 3, -1] * B[3, 4, -2]
-    return Array(F)
+    # TODO: replace trace with projector
+    @tensor F[-1 -2; -3 -4] := A[1 2 3; -1] * B[3 4 6; -2] * conj(D[1 5 6; -4]) *
+                               conj(C[2 4 5; -3]) / dim(d)
+
+    # @tensor F[-1, -2, -3, -4] := conj(D[1, 5, -4]) * conj(C[2, 4, 5, -3]) *
+    #                              A[1, 2, 3, -1] * B[3, 4, -2]
+    return convert(Array, F)
 end
 
 const RCACHE = LRU{Int,Any}(; maxsize=10)
@@ -101,9 +109,12 @@ function _Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
 
     (N1 == 0 || N2 == 0) && return fill(0.0, N1, N2)
 
-    A = fusiontensor(a, b, c)[:, :, 1, :]
-    B = fusiontensor(b, a, c)[:, :, 1, :]
+    # A = fusiontensor(a, b, c)[:, :, 1, :]
+    # B = fusiontensor(b, a, c)[:, :, 1, :]
+    A = reduced_CGC(a, b, c)
+    B = reduced_CGC(b, a, c)
 
-    @tensor R[-1; -2] := conj(B[1, 2, -2]) * A[2, 1, -1]
-    return Array(R)
+    # TODO: replace trace with projector
+    @tensor R[-1; -2] := conj(B[1 2 3; -2]) * A[2 1 3; -1] / dim(c)
+    return convert(Array, R)
 end

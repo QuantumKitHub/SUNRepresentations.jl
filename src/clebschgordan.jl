@@ -22,6 +22,7 @@ function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where
 end
 
 @noinline function _get_CGC(::Type{T}, @nospecialize(key)) where {T}
+    return generate_CGC(T, key...)
     d::SparseArray{T,4} = get!(CGC_CACHE, key) do
         result = tryread(T, key...)
         isnothing(result) || return result
