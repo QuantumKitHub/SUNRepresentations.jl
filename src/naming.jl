@@ -10,9 +10,9 @@ end
 
 function Base.show(io::IO, s::SUNIrrep)
     name = display_mode() == "weight" ? weightname(s) :
-           display_mode() == "dynkin" ? dynkinname(s) :
-           display_mode() == "dimension" ? "\"$(dimname(s))\"" :
-           error("Invalid display mode $(display_mode()).")
+        display_mode() == "dynkin" ? dynkinname(s) :
+        display_mode() == "dimension" ? "\"$(dimname(s))\"" :
+        error("Invalid display mode $(display_mode()).")
     if get(io, :typeinfo, nothing) === typeof(s)
         print(io, name)
     else
@@ -86,14 +86,16 @@ function index(s::SUNIrrep)
     return numerator(id)
 end
 
-function all_dynkin(::Type{SUNIrrep{N}}, maxdynkin::Int=3) where {N}
-    return (SUNIrrep(collect(I.I .- 1))
-            for I in CartesianIndices(ntuple(k -> maxdynkin + 1, N - 1)))
+function all_dynkin(::Type{SUNIrrep{N}}, maxdynkin::Int = 3) where {N}
+    return (
+        SUNIrrep(collect(I.I .- 1))
+            for I in CartesianIndices(ntuple(k -> maxdynkin + 1, N - 1))
+    )
 end
 
-function irreps_by_dim(::Type{SUNIrrep{N}}, d::Int, maxdynkin::Int=3) where {N}
+function irreps_by_dim(::Type{SUNIrrep{N}}, d::Int, maxdynkin::Int = 3) where {N}
     irreps = [I for I in all_dynkin(SUNIrrep{N}, maxdynkin) if dim(I) == d]
-    return sort!(irreps; by=x -> (index(x), congruency(x), dynkin_label(x)))
+    return sort!(irreps; by = x -> (index(x), congruency(x), dynkin_label(x)))
 end
 
 function find_dimname(s::SUNIrrep{N}) where {N}
@@ -162,7 +164,7 @@ const str_prime = "′"
 const prime_chars = ('\U2032', '\U2033', '\U2034', '\U2057')
 const dual_char = '⁺'
 
-function count_primes(name::Union{AbstractString,Vector{Char}})
+function count_primes(name::Union{AbstractString, Vector{Char}})
     return sum(((i, c),) -> i * count(==(c), name), enumerate(prime_chars))
 end
 is_conjugate(name::AbstractString) = endswith(name, dual_char)
@@ -205,7 +207,7 @@ function add_primes(name::AbstractString, n::Int)
     name *= repeat(prime_chars[4], n ÷ 4)
     return n % 4 == 0 ? name : name * prime_chars[mod1(n, 4)]
 end
-add_conjugate(name::AbstractString, isconj=true) = isconj ? name * dual_char : name
+add_conjugate(name::AbstractString, isconj = true) = isconj ? name * dual_char : name
 
 """
     generate_dimname(d::Int, numprimes::Int, conjugate::Bool) -> AbstractString
