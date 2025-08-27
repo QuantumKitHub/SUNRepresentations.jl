@@ -36,10 +36,10 @@ required to uniquely identify the irrep.
 Constructs the `SU{N}` irrep with highest weight `a = [a₁, a₂, …, aₙ₋₁]`.
 """
 struct SUNIrrep{N} <: AbstractIrrep{SU{N}}
-    I::NTuple{N,Int}
+    I::NTuple{N, Int}
 end
 
-SUNIrrep(args::Vararg{Int,N}) where {N} = SUNIrrep{N}(args)
+SUNIrrep(args::Vararg{Int, N}) where {N} = SUNIrrep{N}(args)
 SUNIrrep{N}(args::Vararg{Int}) where {N} = SUNIrrep{N}(args)
 
 SUNIrrep(a::Vector{Int}) = SUNIrrep{length(a) + 1}(a)
@@ -106,7 +106,7 @@ basis(s::SUNIrrep) = GTPatternIterator(s)
 # direct product: return dictionary with new irreps as keys, outer multiplicities as value
 function directproduct(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
     dim(s1) > dim(s2) && return directproduct(s2, s1)
-    result = Dict{SUNIrrep{N},Int}()
+    result = Dict{SUNIrrep{N}, Int}()
     for m in basis(s1)
         t = weight(s2)
         bad_pattern = false

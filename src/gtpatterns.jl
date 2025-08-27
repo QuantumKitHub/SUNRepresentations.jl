@@ -1,8 +1,8 @@
-struct GTPattern{N,L}
-    data::NTuple{L,Int}
-    function GTPattern{N}(data::NTuple{L,Int}) where {N,L}
+struct GTPattern{N, L}
+    data::NTuple{L, Int}
+    function GTPattern{N}(data::NTuple{L, Int}) where {N, L}
         @assert 2 * L == N * (N + 1)
-        return new{N,L}(data)
+        return new{N, L}(data)
     end
 end
 
@@ -56,6 +56,7 @@ function Base.show(io::IO, m::GTPattern)
             println(io, " ⎟")
         end
     end
+    return
 end
 function Base.isless(ma::GTPattern{N}, mb::GTPattern{N}) where {N}
     @inbounds for l in N:-1:1, k in 1:l
@@ -94,10 +95,10 @@ end
 
 Base.IteratorSize(::Type{<:GTPatternIterator}) = Base.SizeUnknown()
 Base.IteratorEltype(::Type{<:GTPatternIterator}) = Base.HasEltype()
-Base.eltype(::GTPatternIterator{N}) where {N} = GTPattern{N,(N * (N + 1)) >> 1}
+Base.eltype(::GTPatternIterator{N}) where {N} = GTPattern{N, (N * (N + 1)) >> 1}
 Base.length(iter::GTPatternIterator) = dim(iter.irrep)
 
-function Base.iterate(iter::GTPatternIterator{1}, state=true)
+function Base.iterate(iter::GTPatternIterator{1}, state = true)
     if state
         return GTPattern{1}((weight(iter.irrep)[1],)), false
     else
@@ -155,7 +156,7 @@ function creation(s::SUNIrrep{N}) where {N}
                 numerator(coef) == 0 && break
                 if k′ <= l && k′ != k
                     coef //= (m[k′, l] - m[k, l] + k - k′) *
-                             (m[k′, l] - m[k, l] + k - k′ - 1)
+                        (m[k′, l] - m[k, l] + k - k′ - 1)
                 end
                 denominator(coef) == 0 && break
             end

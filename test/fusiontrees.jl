@@ -27,7 +27,7 @@ for I in sectorlist
                     @test norm(values(d1)) ≈ 1
                     d2 = empty(d1)
                     for (f1, coeff1) in d1
-                        for (f2, coeff2) in TK.artin_braid(f1, i; inv=true)
+                        for (f2, coeff2) in TK.artin_braid(f1, i; inv = true)
                             d2[f2] = get(d2, f2, zero(coeff1)) + coeff2 * coeff1
                         end
                     end
@@ -36,7 +36,7 @@ for I in sectorlist
                         if f2 == f
                             @test coeff2 ≈ 1
                         else
-                            @test isapprox(coeff2, 0; atol=1000 * eps())
+                            @test isapprox(coeff2, 0; atol = 1000 * eps())
                         end
                     end
                 end
@@ -54,14 +54,14 @@ for I in sectorlist
         d1 = d2
         d2 = empty(d1)
         for (f1, coeff1) in d1
-            for (f2, coeff2) in TK.artin_braid(f1, 3; inv=true)
+            for (f2, coeff2) in TK.artin_braid(f1, 3; inv = true)
                 d2[f2] = get(d2, f2, zero(coeff1)) + coeff2 * coeff1
             end
         end
         d1 = d2
         d2 = empty(d1)
         for (f1, coeff1) in d1
-            for (f2, coeff2) in TK.artin_braid(f1, 2; inv=true)
+            for (f2, coeff2) in TK.artin_braid(f1, 2; inv = true)
                 d2[f2] = get(d2, f2, zero(coeff1)) + coeff2 * coeff1
             end
         end
@@ -70,7 +70,7 @@ for I in sectorlist
             if f1 == f
                 @test coeff1 ≈ 1
             else
-                @test isapprox(coeff1, 0; atol=1000 * eps())
+                @test isapprox(coeff1, 0; atol = 1000 * eps())
             end
         end
     end
@@ -80,7 +80,7 @@ for I in sectorlist
 
         levels = ntuple(identity, N)
         d = @constinferred TK.braid(f, levels, p)
-        d2 = Dict{typeof(f),valtype(d)}()
+        d2 = Dict{typeof(f), valtype(d)}()
         levels2 = p
         for (f2, coeff) in d
             for (f1, coeff2) in TK.braid(f2, levels2, ip)
@@ -91,7 +91,7 @@ for I in sectorlist
             if f1 == f
                 @test coeff2 ≈ 1
             else
-                @test isapprox(coeff2, 0; atol=1000 * eps())
+                @test isapprox(coeff2, 0; atol = 1000 * eps())
             end
         end
 
@@ -141,16 +141,22 @@ for I in sectorlist
                 end
             end
             for (t, coeff) in trees3
-                @test isapprox(get(trees, t, zero(coeff)), coeff;
-                               atol=1000 * eps(), rtol=1000 * eps())
+                @test isapprox(
+                    get(trees, t, zero(coeff)), coeff;
+                    atol = 1000 * eps(), rtol = 1000 * eps()
+                )
             end
 
             Af1 = convert(SparseArray, f1)
             Af2 = convert(SparseArray, f2)
-            Af = TensorOperations.tensorcontract(1:(2N), Af1,
-                                                 [1:(i - 1); -1;
-                                                  N - 1 .+ ((i + 1):(N + 1))],
-                                                 Af2, [i - 1 .+ (1:N); -1])
+            Af = TensorOperations.tensorcontract(
+                1:(2N), Af1,
+                [
+                    1:(i - 1); -1;
+                    N - 1 .+ ((i + 1):(N + 1))
+                ],
+                Af2, [i - 1 .+ (1:N); -1]
+            )
             Af′ = zero(Af)
             for (f, coeff) in trees
                 Af′ .+= coeff .* convert(SparseArray, f)
@@ -168,9 +174,11 @@ for I in sectorlist
         f2 = rand(collect(fusiontrees(out2, in2)))
 
         @constinferred TK.merge(f1, f2, first(in1 ⊗ in2), 1)
-        @test dim(in1) * dim(in2) ≈ sum(abs2(coeff) * dim(c) for c in in1 ⊗ in2
-                                        for μ in 1:Nsymbol(in1, in2, c)
-                                        for (f, coeff) in TK.merge(f1, f2, c, μ))
+        @test dim(in1) * dim(in2) ≈ sum(
+            abs2(coeff) * dim(c) for c in in1 ⊗ in2
+                for μ in 1:Nsymbol(in1, in2, c)
+                for (f, coeff) in TK.merge(f1, f2, c, μ)
+        )
 
         for c in in1 ⊗ in2
             R = Rsymbol(in1, in2, c)
@@ -178,8 +186,8 @@ for I in sectorlist
                 trees1 = TK.merge(f1, f2, c, μ)
 
                 # test merge and braid interplay
-                trees2 = Dict{keytype(trees1),complex(valtype(trees1))}()
-                trees3 = Dict{keytype(trees1),complex(valtype(trees1))}()
+                trees2 = Dict{keytype(trees1), complex(valtype(trees1))}()
+                trees3 = Dict{keytype(trees1), complex(valtype(trees1))}()
                 for ν in 1:Nsymbol(in2, in1, c)
                     for (t, coeff) in TK.merge(f2, f1, c, ν)
                         trees2[t] = get(trees2, t, zero(valtype(trees2))) + coeff * R[μ, ν]
@@ -193,20 +201,25 @@ for I in sectorlist
                     end
                 end
                 for (t, coeff) in trees3
-                    @test isapprox(coeff, get(trees2, t, zero(coeff));
-                                   atol=1000 * eps(), rtol=1000 * eps())
+                    @test isapprox(
+                        coeff, get(trees2, t, zero(coeff));
+                        atol = 1000 * eps(), rtol = 1000 * eps()
+                    )
                 end
 
                 # test via conversion
                 Af1 = convert(SparseArray, f1)
                 Af2 = convert(SparseArray, f2)
-                Af0 = convert(SparseArray,
-                              FusionTree((f1.coupled, f2.coupled), c, (false, false), (),
-                                         (μ,)))
-                _Af = TensorOperations.tensorcontract(1:(N + 2), Af1, [1:N; -1],
-                                                      Af0, [-1; N + 1; N + 2])
-                Af = TensorOperations.tensorcontract(1:(2N + 1), Af2, [N .+ (1:N); -1],
-                                                     _Af, [1:N; -1; 2N + 1])
+                Af0 = convert(
+                    SparseArray,
+                    FusionTree((f1.coupled, f2.coupled), c, (false, false), (), (μ,))
+                )
+                _Af = TensorOperations.tensorcontract(
+                    1:(N + 2), Af1, [1:N; -1], Af0, [-1; N + 1; N + 2]
+                )
+                Af = TensorOperations.tensorcontract(
+                    1:(2N + 1), Af2, [N .+ (1:N); -1], _Af, [1:N; -1; 2N + 1]
+                )
                 Af′ = zero(Af)
                 for (f, coeff) in trees1
                     Af′ .+= coeff .* convert(SparseArray, f)
@@ -231,8 +244,8 @@ for I in sectorlist
         for n in 0:(2 * N)
             d = @constinferred TK.repartition(f1, f2, $n)
             @test dim(incoming) ≈
-                  sum(abs2(coef) * dim(f1.coupled) for ((f1, f2), coef) in d)
-            d2 = Dict{typeof((f1, f2)),valtype(d)}()
+                sum(abs2(coef) * dim(f1.coupled) for ((f1, f2), coef) in d)
+            d2 = Dict{typeof((f1, f2)), valtype(d)}()
             for ((f1′, f2′), coeff) in d
                 for ((f1′′, f2′′), coeff2) in TK.repartition(f1′, f2′, N)
                     d2[(f1′′, f2′′)] = get(d2, (f1′′, f2′′), zero(coeff)) + coeff2 * coeff
@@ -245,7 +258,7 @@ for I in sectorlist
                         @show f1, f2, n
                     end
                 else
-                    @test isapprox(coeff2, 0; atol=1000 * eps())
+                    @test isapprox(coeff2, 0; atol = 1000 * eps())
                 end
             end
             Af1 = convert(SparseArray, f1)
@@ -255,8 +268,10 @@ for I in sectorlist
             d1 = prod(sz1[1:(end - 1)])
             d2 = prod(sz2[1:(end - 1)])
             dc = sz1[end]
-            A = reshape(reshape(Af1, (d1, dc)) * reshape(Af2, (d2, dc))',
-                        (sz1[1:(end - 1)]..., sz2[1:(end - 1)]...))
+            A = reshape(
+                reshape(Af1, (d1, dc)) * reshape(Af2, (d2, dc))',
+                (sz1[1:(end - 1)]..., sz2[1:(end - 1)]...)
+            )
             A2 = zero(A)
             for ((f1′, f2′), coeff) in d
                 Af1′ = convert(SparseArray, f1′)
@@ -267,8 +282,10 @@ for I in sectorlist
                 d2′ = prod(sz2′[1:(end - 1)])
                 dc′ = sz1′[end]
                 A2 += coeff *
-                      reshape(reshape(Af1′, (d1′, dc′)) * reshape(Af2′, (d2′, dc′))',
-                              (sz1′[1:(end - 1)]..., sz2′[1:(end - 1)]...))
+                    reshape(
+                    reshape(Af1′, (d1′, dc′)) * reshape(Af2′, (d2′, dc′))',
+                    (sz1′[1:(end - 1)]..., sz2′[1:(end - 1)]...)
+                )
             end
             @test A ≈ A2
         end
@@ -283,13 +300,13 @@ for I in sectorlist
 
                 d = @constinferred TensorKit.permute(f1, f2, p1, p2)
                 @test dim(incoming) ≈
-                      sum(abs2(coef) * dim(f1.coupled) for ((f1, f2), coef) in d)
-                d2 = Dict{typeof((f1, f2)),valtype(d)}()
+                    sum(abs2(coef) * dim(f1.coupled) for ((f1, f2), coef) in d)
+                d2 = Dict{typeof((f1, f2)), valtype(d)}()
                 for ((f1′, f2′), coeff) in d
                     d′ = TensorKit.permute(f1′, f2′, ip1, ip2)
                     for ((f1′′, f2′′), coeff2) in d′
                         d2[(f1′′, f2′′)] = get(d2, (f1′′, f2′′), zero(coeff)) +
-                                           coeff2 * coeff
+                            coeff2 * coeff
                     end
                 end
                 for ((f1′, f2′), coeff2) in d2
@@ -309,8 +326,10 @@ for I in sectorlist
                 d1 = prod(sz1[1:(end - 1)])
                 d2 = prod(sz2[1:(end - 1)])
                 dc = sz1[end]
-                A = reshape(reshape(Af1, (d1, dc)) * reshape(Af2, (d2, dc))',
-                            (sz1[1:(end - 1)]..., sz2[1:(end - 1)]...))
+                A = reshape(
+                    reshape(Af1, (d1, dc)) * reshape(Af2, (d2, dc))',
+                    (sz1[1:(end - 1)]..., sz2[1:(end - 1)]...)
+                )
                 Ap = permutedims(A, (p1..., p2...))
                 A2 = zero(Ap)
                 for ((f1′, f2′), coeff) in d
@@ -321,17 +340,21 @@ for I in sectorlist
                     d1′ = prod(sz1′[1:(end - 1)])
                     d2′ = prod(sz2′[1:(end - 1)])
                     dc′ = sz1′[end]
-                    A2 += coeff * reshape(reshape(Af1′, (d1′, dc′)) *
-                                          reshape(Af2′, (d2′, dc′))',
-                                          (sz1′[1:(end - 1)]..., sz2′[1:(end - 1)]...))
+                    A2 += coeff * reshape(
+                        reshape(Af1′, (d1′, dc′)) *
+                            reshape(Af2′, (d2′, dc′))',
+                        (sz1′[1:(end - 1)]..., sz2′[1:(end - 1)]...)
+                    )
                 end
-                @test isapprox(Ap, A2; atol=1000 * eps(), rtol=1000 * eps())
+                @test isapprox(Ap, A2; atol = 1000 * eps(), rtol = 1000 * eps())
             end
         end
     end
     tf = time()
-    printstyled("Finished fusion tree $I tests in ",
-                string(round(tf - ti; sigdigits=3)),
-                " seconds."; bold=true, color=Base.info_color())
+    printstyled(
+        "Finished fusion tree $I tests in ",
+        string(round(tf - ti; sigdigits = 3)),
+        " seconds."; bold = true, color = Base.info_color()
+    )
     println()
 end

@@ -3,26 +3,26 @@
 
 Global cache for storing Clebsch-Gordan Coefficients.
 """
-const CGC_CACHE = LRU{Any,SparseArray{Float64,4}}(; maxsize=100_000)
+const CGC_CACHE = LRU{Any, SparseArray{Float64, 4}}(; maxsize = 100_000)
 
 # convert sector to string key
 _key(s::SUNIrrep) = string(weight(s))
 
 const CGC_CACHE_PATH = @get_scratch!("CGC")
-function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T=Float64) where {N}
+function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T = Float64) where {N}
     return joinpath(CGC_CACHE_PATH, string(N), string(T), _key(s1), _key(s2))
 end
 
-function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T,N}
+function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T, N}
     fn = cgc_cachepath(s1, s2, T)
     isfile(fn * ".jld2") || return nothing
 
-    return mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+    return mkpidlock(fn * ".pid"; stale_age = _PID_STALE_AGE) do
         try
-            return jldopen(fn * ".jld2", "r"; parallel_read=true) do file
+            return jldopen(fn * ".jld2", "r"; parallel_read = true) do file
                 @debug "loaded CGC from disk: $s1 ⊗ $s2 → $s3"
                 !haskey(file, _key(s3)) && return nothing
-                return file[_key(s3)]::SparseArray{T,4}
+                return file[_key(s3)]::SparseArray{T, 4}
             end
         catch
         end
@@ -42,21 +42,23 @@ Timeout for stale PID files in seconds.
 """
 const _PID_STALE_AGE = 60.0
 
-function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T,N}
+function generate_all_CGCs(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {T, N}
     @debug "Generating CGCs: $s1 ⊗ $s2"
     CGCs = Dict(_key(s3) => CGC(T, s1, s2, s3) for s3 in s1 ⊗ s2)
     return CGCs
 end
 
-function generate_CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N},
-                      s3::SUNIrrep{N}) where {T,N}
+function generate_CGC(
+        ::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N},
+        s3::SUNIrrep{N}
+    ) where {T, N}
     @debug "Generating CGCs: $s1 ⊗ $s2"
     CGCs = _CGC(T, s1, s2, s3)
     fn = cgc_cachepath(s1, s2, T)
     isdir(dirname(fn)) || mkpath(dirname(fn))
 
     ks3 = _key(s3)
-    mkpidlock(fn * ".pid"; stale_age=_PID_STALE_AGE) do
+    mkpidlock(fn * ".pid"; stale_age = _PID_STALE_AGE) do
         return jldopen(fn * ".jld2", "a+") do file
             if !haskey(file, ks3)
                 file[ks3] = CGCs
@@ -73,7 +75,7 @@ Populate the CGC cache for ``SU(N)`` with eltype `T` with all CGCs with Dynkin l
 ``a_max``.
 Will not recompute CGCs that are already in the cache, unless ``force=true``.
 """
-function precompute_disk_cache(N, a_max::Int=1, T::Type{<:Number}=Float64; force=false)
+function precompute_disk_cache(N, a_max::Int = 1, T::Type{<:Number} = Float64; force = false)
     all_irreps = all_dynkin(SUNIrrep{N}, a_max)
     @sync for s1 in all_irreps, s2 in all_irreps
         if force || !isfile(cgc_cachepath(s1, s2, T) * ".jld2")
@@ -98,7 +100,7 @@ function clear_disk_cache!(N, T)
     fldrname = joinpath(CGC_CACHE_PATH, string(N), string(T))
     if isdir(fldrname)
         @info "Removing disk cache SU($N): $T"
-        rm(fldrname; recursive=true)
+        rm(fldrname; recursive = true)
     end
     return nothing
 end
@@ -106,7 +108,7 @@ function clear_disk_cache!(N)
     fldrname = joinpath(CGC_CACHE_PATH, string(N))
     if isdir(fldrname)
         @info "Removing disk cache SU($N)"
-        rm(fldrname; recursive=true)
+        rm(fldrname; recursive = true)
     end
     return nothing
 end
@@ -115,7 +117,7 @@ function clear_disk_cache!()
     return nothing
 end
 
-function ram_cache_info(io::IO=stdout)
+function ram_cache_info(io::IO = stdout)
     if isempty(CGC_CACHE)
         println(io, "CGC RAM cache is empty.")
     else
@@ -131,7 +133,7 @@ end
 
 Print information about the CGC disk cache to `io`. If `clean=true`, remove any corrupted files.
 """
-function disk_cache_info(io::IO=stdout; clean=false)
+function disk_cache_info(io::IO = stdout; clean = false)
     if !isdir(CGC_CACHE_PATH) || isempty(readdir(CGC_CACHE_PATH))
         println("CGC disk cache is empty.")
         return nothing
@@ -139,10 +141,10 @@ function disk_cache_info(io::IO=stdout; clean=false)
     println(io, "CGC disk cache info:")
     println(io, "====================")
 
-    for fldr_N in readdir(CGC_CACHE_PATH; join=true)
+    for fldr_N in readdir(CGC_CACHE_PATH; join = true)
         isdir(fldr_N) || continue
         N = basename(fldr_N)
-        for fldr_T in readdir(fldr_N; join=true)
+        for fldr_T in readdir(fldr_N; join = true)
             isdir(fldr_T) || continue
             T = basename(fldr_T)
             n_bytes = 0
@@ -151,19 +153,20 @@ function disk_cache_info(io::IO=stdout; clean=false)
                 for f in files
                     # wrap in try/catch to avoid stopping the loop if a file is corrupted
                     try
-                        n_entries += jldopen(file -> length(keys(file)), joinpath(root, f),
-                                             "r")
+                        n_entries += jldopen(
+                            file -> length(keys(file)), joinpath(root, f), "r"
+                        )
                         n_bytes += filesize(joinpath(root, f))
                     catch e
                         println(io, "Error in file $(joinpath(root, f)) : $e")
-                        if clean
-                            rm(joinpath(root, f); force=true)
-                        end
+                        clean && rm(joinpath(root, f); force = true)
                     end
                 end
             end
-            println(io,
-                    "* SU($N) - $T - $(n_entries) entries - $(Base.format_bytes(n_bytes))")
+            println(
+                io,
+                "* SU($N) - $T - $(n_entries) entries - $(Base.format_bytes(n_bytes))"
+            )
         end
     end
     return nothing
@@ -174,7 +177,7 @@ end
 
 Print information about the CGC cache.
 """
-function cache_info(io::IO=stdout)
+function cache_info(io::IO = stdout)
     ram_cache_info(io)
     println(io)
     disk_cache_info(io)
