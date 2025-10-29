@@ -30,8 +30,8 @@ end
 
 Base.:(==)(s::SUNIrrep, t::SUNIrrep) = ==(s.I, t.I)
 Base.hash(s::SUNIrrep, h::UInt) = hash(s.I, h)
-Base.conj(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
-Base.one(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
+TensorKitSectors.dual(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
+TensorKitSectors.unit(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
 
 TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
 TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic()
