@@ -1,7 +1,7 @@
 name = "SUNRepresentations"
 uuid = "1a50b95c-7aac-476d-a9ce-2bfc675fc617"
 authors = ["Maarten Van Damme <Maarten.VanDamme@UGent.be>, Jutho Haegeman <jutho.haegeman@ugent.be> and Lukas Devos <lukas.devos@UGent.be>"]
-version = "0.3.3"
+version = "0.3.4"
 
 [deps]
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
@@ -34,7 +34,7 @@ Random = "1"
 RationalRoots = "0.1 - 0.2"
 Scratch = "1"
 SparseArrayKit = "0.4"
-TensorKit = "0.15"
+TensorKit = "0.15, 0.16"
 TensorKitSectors = "0.3"
 TensorOperations = "5"
 Test = "1"
