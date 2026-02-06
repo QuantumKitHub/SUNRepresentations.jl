@@ -46,20 +46,24 @@ function TensorKitSectors.Nsymbol(
     return get(directproduct(s1, s2), s3, 0)
 end
 
+TensorKitSectors.sectorscalartype(::Type{<:SUNIrrep}) = Float64
 function TensorKitSectors.fusiontensor(
         s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}
     ) where {N}
-    return CGC(Float64, s1, s2, s3)
+    return CGC(s1, s2, s3)
 end
 
 const FCACHE = LRU{Int, Any}(; maxsize = 10)
+
+TensorKitSectors.fusionscalartype(::Type{<:SUNIrrep}) = Float64
+
 function TensorKitSectors.Fsymbol(
         a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N},
         d::SUNIrrep{N}, e::SUNIrrep{N}, f::SUNIrrep{N}
     ) where {N}
     key = (a, b, c, d, e, f)
     K = typeof(key)
-    V = Array{Float64, 4}
+    V = Array{fusionscalartype(typeof(a)), 4}
     cache::LRU{K, V} = get!(FCACHE, N) do
         return LRU{K, V}(; maxsize = 10^5)
     end
@@ -76,7 +80,8 @@ function _Fsymbol(
     N3 = Nsymbol(b, c, f)
     N4 = Nsymbol(a, f, d)
 
-    (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) && return fill(0.0, N1, N2, N3, N4)
+    (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) &&
+        return fill(zero(fusionscalartype(typeof(a))), N1, N2, N3, N4)
 
     # computing first diagonal element
     A = fusiontensor(a, b, e)
@@ -90,10 +95,11 @@ function _Fsymbol(
 end
 
 const RCACHE = LRU{Int, Any}(; maxsize = 10)
+TensorKitSectors.braidingscalartype(::Type{<:SUNIrrep}) = Float64
 function TensorKitSectors.Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
     key = (a, b, c)
     K = typeof(key)
-    V = Array{Float64, 2}
+    V = Array{braidingscalartype(typeof(a)), 2}
     cache::LRU{K, V} = get!(RCACHE, N) do
         return LRU{K, V}(; maxsize = 10^5)
     end
@@ -105,7 +111,8 @@ function _Rsymbol(a::SUNIrrep{N}, b::SUNIrrep{N}, c::SUNIrrep{N}) where {N}
     N1 = Nsymbol(a, b, c)
     N2 = Nsymbol(b, a, c)
 
-    (N1 == 0 || N2 == 0) && return fill(0.0, N1, N2)
+    (N1 == 0 || N2 == 0) &&
+        return fill(zero(braidingscalartype(typeof(a))), N1, N2)
 
     A = fusiontensor(a, b, c)[:, :, 1, :]
     B = fusiontensor(b, a, c)[:, :, 1, :]

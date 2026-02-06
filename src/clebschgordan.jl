@@ -16,7 +16,7 @@ function weightmap(basis)
     return weights
 end
 
-CGC(s1::I, s2::I, s3::I) where {I <: SUNIrrep} = CGC(Float64, s1, s2, s3)
+CGC(s1::I, s2::I, s3::I) where {I <: SUNIrrep} = CGC(sectorscalartype(I), s1, s2, s3)
 function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T, N}
     return _get_CGC(T, (s1, s2, s3))
 end
