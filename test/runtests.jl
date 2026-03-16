@@ -45,6 +45,7 @@ module GenericTests
     using TestExtras
     using Random
     using SUNRepresentations
+    using TensorKitSectors
     include("generic.jl")
 end
 
