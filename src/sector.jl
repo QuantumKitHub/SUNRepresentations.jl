@@ -134,13 +134,14 @@ TensorKitSectors.fusionscalartype(::Type{<:SUNIrrep}) = Float64
 TensorKitSectors.Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep} =
     SUN_Fsymbol(a, b, c, d, e, f)
 @cached function SUN_Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I)::Array{Float64, 4} where {I <: SUNIrrep}
-    N1 = Nsymbol(a, b, e)
-    N2 = Nsymbol(e, c, d)
-    N3 = Nsymbol(b, c, f)
-    N4 = Nsymbol(a, f, d)
-
-    (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) &&
-        return fill(zero(fusionscalartype(I)), N1, N2, N3, N4)
+    return TensorKitSectors.Fsymbol_from_fusiontensor(a, b, c, d, e, f)
+end
+MemoizationKit.default_cache_settings(::typeof(SUN_Fsymbol)) = (; maxsize = 10^5)
+function TensorKitSectors.Fsymbol_from_fusiontensor(
+        a::I, b::I, c::I, d::I, e::I, f::I
+    ) where {I <: SUNIrrep}
+    Nabe, Necd, Nbcd, Nafd = Nsymbol(a, b, e), Nsymbol(e, c, d), Nsymbol(b, c, f), Nsymbol(a, f, d)
+    iszero(Nabe * Necd * Nbcd * Nafd) && return zeros(fusionscalartype(I), Nabe, Necd, Nbcd, Nafd)
 
     # computing first diagonal element
     A = fusiontensor(a, b, e)
@@ -152,15 +153,38 @@ TensorKitSectors.Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrre
         A[1, 2, 3, -1] * B[3, 4, -2]
     return Array(F)
 end
-MemoizationKit.default_cache_settings(::typeof(SUN_Fsymbol)) = (; maxsize = 10^5)
+
+# remove the view calls
+function TensorKitSectors.Asymbol_from_fusiontensor(a::I, b::I, c::I) where {I <: SUNIrrep}
+    Nabc = Nsymbol(a, b, c)
+    iszero(Nabc) && return zeros(fusionscalartype(typeof(a)), Nabc, Nabc)
+
+    C1 = fusiontensor(a, b, c)[:, 1, :, :]
+    C2 = fusiontensor(dual(a), c, b)[:, :, 1, :]
+    Za = sqrtdim(a) * fusiontensor(a, dual(a), leftunit(a))[:, :, 1, 1]
+    @tensor A[-1, -2] := sqrtdim(b) / sqrtdim(c) * conj(Za[1, 2]) * C1[1, 3, -1] * C2[2, 3, -2]
+    return Array(A)
+end
+function TensorKitSectors.Bsymbol_from_fusiontensor(a::I, b::I, c::I) where {I <: SUNIrrep}
+    Nabc = Nsymbol(a, b, c)
+    iszero(Nabc) && return zeros(fusionscalartype(typeof(a)), Nabc, Nabc)
+
+    C1 = fusiontensor(a, b, c)[1, :, :, :]
+    C2 = fusiontensor(c, dual(b), a)[:, :, 1, :]
+    Zb = sqrtdim(b) * fusiontensor(b, dual(b), leftunit(b))[:, :, 1, 1]
+    @tensor B[-1, -2] := sqrtdim(a) / sqrtdim(c) * conj(Zb[1, 2]) * C1[1, 3, -1] * C2[3, 2, -2]
+    return Array(B)
+end
 
 TensorKitSectors.braidingscalartype(::Type{<:SUNIrrep}) = Float64
 TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep} = SUN_Rsymbol(a, b, c)
 @cached function SUN_Rsymbol(a::I, b::I, c::I)::Array{Float64, 2} where {I <: SUNIrrep}
-    N1 = Nsymbol(a, b, c)
-    N2 = Nsymbol(b, a, c)
-
-    (N1 == 0 || N2 == 0) && return fill(zero(braidingscalartype(I)), N1, N2)
+    return TensorKitSectors.Rsymbol_from_fusiontensor(a, b, c)
+end
+MemoizationKit.default_cache_settings(::typeof(SUN_Rsymbol)) = (; maxsize = 10^5)
+function TensorKitSectors.Rsymbol_from_fusiontensor(a::I, b::I, c::I) where {I <: SUNIrrep}
+    Nabc = Nsymbol(a, b, c)
+    iszero(Nabc) && return fill(zero(braidingscalartype(I)), Nabc, Nabc)
 
     A = fusiontensor(a, b, c)[:, :, 1, :]
     B = fusiontensor(b, a, c)[:, :, 1, :]
@@ -168,4 +192,3 @@ TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep} = SUN_Rsymbol(a
     @tensor R[-1; -2] := conj(B[1, 2, -2]) * A[2, 1, -1]
     return Array(R)
 end
-MemoizationKit.default_cache_settings(::typeof(SUN_Rsymbol)) = (; maxsize = 10^5)
