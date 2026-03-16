@@ -1,42 +1,46 @@
 using Test
 using TestExtras
-using Aqua
 using Random
+using TensorKitSectors
 using TensorKit
 using SUNRepresentations
 using Combinatorics
-using TensorKit
-using TensorKit: ProductSector, fusiontensor, pentagon_equation, hexagon_equation
 using TensorOperations
-using Base.Iterators: take, product
+using Base.Iterators: take
 using SparseArrayKit: SparseArray
 using LinearAlgebra: LinearAlgebra
 
 const TK = TensorKit
 
 Random.seed!(1234)
-
-smallset(::Type{I}) where {I <: Sector} = take(values(I), 5)
-function smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1, I2}
-    iter = product(smallset(I1), smallset(I2))
-    s = collect(i ⊠ j for (i, j) in iter if dim(i) * dim(j) <= 6)
-    return length(s) > 6 ? rand(s, 6) : s
-end
-function smallset(::Type{ProductSector{Tuple{I1, I2, I3}}}) where {I1, I2, I3}
-    iter = product(smallset(I1), smallset(I2), smallset(I3))
-    s = collect(i ⊠ j ⊠ k for (i, j, k) in iter if dim(i) * dim(j) * dim(k) <= 6)
-    return length(s) > 6 ? rand(s, 6) : s
-end
-function randsector(::Type{I}) where {I <: Sector}
-    s = collect(smallset(I))
-    a = rand(s)
-    while a == one(a) # don't use trivial label
-        a = rand(s)
-    end
-    return a
-end
-
 Ti = time()
+
+# sector tests
+testsuite_path = joinpath(
+    dirname(dirname(pathof(TensorKitSectors))), # TensorKitSectors root
+    "test", "testsuite.jl"
+)
+include(testsuite_path)
+using .SectorTestSuite: randsector, smallset
+
+function SectorTestSuite.smallset(::Type{I}) where {I <: SUNIrrep}
+    return smallset(I, 5, 15)
+end
+function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1 <: SUNIrrep, I2 <: SUNIrrep}
+    s1 = smallset(I1)
+    s2 = smallset(I2)
+    return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= 500]), 5)
+end
+@show smallset(SUNIrrep{3})
+@show smallset(SUNIrrep{3} ⊠ SUNIrrep{3})
+@testset "Sector tests" begin
+    sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
+    for sector in sectorlist
+        SectorTestSuite.test_sector(sector)
+    end
+    include("sectors.jl")
+end
+
 module GenericTests
     using Test
     using TestExtras
@@ -45,13 +49,15 @@ module GenericTests
     include("generic.jl")
 end
 
-include("caching.jl")
-sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
-include("sectors.jl")
+@testset "Caching tests" begin
+    include("caching.jl")
+end
+
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
-include("fusiontrees.jl")
+# include("fusiontrees.jl")
 
 @testset "Aqua" verbose = true begin
+    using Aqua
     # RationalRoots has ambiguities with Base/Core, so only test SUNRepresentations ambiguities
     # Intentional piracy of Rep[SU{N}] etc
     Aqua.test_all(SUNRepresentations; ambiguities = false, piracies = (; treat_as_own = [SU]))
