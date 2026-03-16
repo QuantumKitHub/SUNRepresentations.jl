@@ -31,10 +31,9 @@ function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I
     s2 = smallset(I2)
     return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= 500]), 5)
 end
-@show smallset(SUNIrrep{3})
-@show smallset(SUNIrrep{3} ⊠ SUNIrrep{3})
+
+sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
 @testset "Sector tests" begin
-    sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
     for sector in sectorlist
         SectorTestSuite.test_sector(sector)
     end
@@ -54,7 +53,7 @@ end
 end
 
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
-# include("fusiontrees.jl")
+include("fusiontrees.jl")
 
 @testset "Aqua" verbose = true begin
     using Aqua
