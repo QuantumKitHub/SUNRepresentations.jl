@@ -31,10 +31,10 @@ end
 end
 
 function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SUNIrrep}
-    if isone(s1)
+    if isunit(s1)
         @assert s2 == s3
         CGC = trivial_CGC(T, s2, true)
-    elseif isone(s2)
+    elseif isunit(s2)
         @assert s1 == s3
         CGC = trivial_CGC(T, s1, false)
     else

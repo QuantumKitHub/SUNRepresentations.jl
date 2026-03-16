@@ -31,7 +31,7 @@ using Latexify: latexify, @L_str
     end
 
     @test inv(cartanmatrix(I1)) ≈ inverse_cartanmatrix(I1)
-    @test SUNIrrep{N}("1") === one(SUNIrrep{N})
+    @test SUNIrrep{N}("1") === unit(SUNIrrep{N})
 end
 
 @timedtestset "Names of SU3Irrep:" begin
