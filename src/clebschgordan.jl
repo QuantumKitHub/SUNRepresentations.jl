@@ -20,10 +20,10 @@ CGC(s1::I, s2::I, s3::I) where {I <: SUNIrrep} = CGC(sectorscalartype(I), s1, s2
 CGC(::Type{T}, s1::I, s2::I, s3::I) where {T, I <: SUNIrrep} = SUN_CGC(T, s1, s2, s3)
 
 @cached function SUN_CGC(::Type{T}, s1::I, s2::I, s3::I)::SparseArray{T, 4} where {T <: Real, I <: SUNIrrep}
-    if isone(s1)
+    if isunit(s1)
         @assert s2 == s3
         CGC = trivial_CGC(T, s2, true)
-    elseif isone(s2)
+    elseif isunit(s2)
         @assert s1 == s3
         CGC = trivial_CGC(T, s1, false)
     else

@@ -36,7 +36,7 @@ using SUNRepresentations.TensorKitSectors: ⊗, Nsymbol, dual
     @test I1.I == @constinferred weight(I1)
 
     @test inv(cartanmatrix(I1)) ≈ inverse_cartanmatrix(I1)
-    @test SUNIrrep{N}("1") === one(SUNIrrep{N})
+    @test SUNIrrep{N}("1") === unit(SUNIrrep{N})
 end
 
 @timedtestset "Direct product of SUNIrrep{$N}:" for N in 2:6
