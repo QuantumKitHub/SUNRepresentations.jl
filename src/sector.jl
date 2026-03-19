@@ -28,10 +28,10 @@ function TensorKitSectors.findindex(::SectorValues{SUNIrrep{N}}, s::SUNIrrep{N})
     return TensorKitSectors.to_manhattan_index(I, sz)
 end
 
-Base.:(==)(s::SUNIrrep, t::SUNIrrep) = ==(weight(s), weight(t))
-Base.hash(s::SUNIrrep, h::UInt) = hash(weight(s), h)
-TensorKitSectors.dual(s::SUNIrrep) = SUNIrrep(weight(s)[1] .- reverse(weight(s)))
-TensorKitSectors.unit(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
+Base.:(==)(s::SUNIrrep, t::SUNIrrep) = getfield(s, :I) == getfield(t, :I)
+Base.hash(s::SUNIrrep, h::UInt) = hash(getfield(s, :I), h)
+TensorKitSectors.dual(s::SUNIrrep{N}) where {N} = (w = getfield(s, :I); SUNIrrep{N}(w[1] .- reverse(w)))
+TensorKitSectors.unit(::Type{SUNIrrep{N}}) where {N} = SUNIrrep{N}(ntuple(Returns(zero(UInt8)), N))
 
 TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
 TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic()

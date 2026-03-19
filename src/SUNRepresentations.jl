@@ -94,7 +94,7 @@ function Base.isless(s1::SUNIrrep{N}, s2::SUNIrrep{N}) where {N}
     return isless(I1, I2)
 end
 
-_normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
+_normalize(s::SUNIrrep{N}) where {N} = (w = getfield(s, :I); return SUNIrrep{N}(w .- w[end]))
 
 Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : f == :I ? weight(s) : getfield(s, f)
 weight(s::SUNIrrep) = map(Int, getfield(s, :I))
