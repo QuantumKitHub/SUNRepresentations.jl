@@ -80,7 +80,7 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SU
 
     map2 = weightmap(basis(s2))
     w3 = weight(highest_weight(s3))
-    wshift = div(sum(s1.I) + sum(s2.I) - sum(s3.I), N)
+    wshift = div(sum(weight(s1)) + sum(weight(s2)) - sum(weight(s3)), N)
 
     for (m1, pat1) in enumerate(basis(s1))
         w1 = weight(pat1)
@@ -147,7 +147,7 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     w3list = sort(collect(keys(map3)); rev = true)
 
     # precompute some data
-    wshift = div(sum(s1.I) + sum(s2.I) - sum(s3.I), N)
+    wshift = div(sum(weight(s1)) + sum(weight(s2)) - sum(weight(s3)), N)
     rhs_rows = Int[]
     rhs_cols = CartesianIndex{2}[]
     rhs_vals = T[]

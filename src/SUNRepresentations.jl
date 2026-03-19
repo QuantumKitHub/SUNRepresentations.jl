@@ -86,7 +86,7 @@ end
 
 _normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
 
-Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : getfield(s, f)
+Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : f == :I ? weight(s) : getfield(s, f)
 weight(s::SUNIrrep) = getfield(s, :I)
 
 function TensorKitSectors.dim(s::SUNIrrep)

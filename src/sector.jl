@@ -28,9 +28,9 @@ function TensorKitSectors.findindex(::SectorValues{SUNIrrep{N}}, s::SUNIrrep{N})
     return TensorKitSectors.to_manhattan_index(I, sz)
 end
 
-Base.:(==)(s::SUNIrrep, t::SUNIrrep) = ==(s.I, t.I)
-Base.hash(s::SUNIrrep, h::UInt) = hash(s.I, h)
-TensorKitSectors.dual(s::SUNIrrep) = SUNIrrep(s.I[1] .- reverse(s.I))
+Base.:(==)(s::SUNIrrep, t::SUNIrrep) = ==(weight(s), weight(t))
+Base.hash(s::SUNIrrep, h::UInt) = hash(weight(s), h)
+TensorKitSectors.dual(s::SUNIrrep) = SUNIrrep(weight(s)[1] .- reverse(weight(s)))
 TensorKitSectors.unit(::Type{SUNIrrep{N}}) where {N} = SUNIrrep(ntuple(n -> 0, N))
 
 TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
