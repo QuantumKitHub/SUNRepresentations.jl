@@ -37,11 +37,21 @@ required to uniquely identify the irrep.
 Constructs the `SU{N}` irrep with highest weight `a = [a₁, a₂, …, aₙ₋₁]`.
 """
 struct SUNIrrep{N} <: AbstractIrrep{SU{N}}
-    I::NTuple{N, Int}
+    I::NTuple{N, UInt8}
 end
 
+function SUNIrrep{N}(t::NTuple{N, Int}) where {N}
+    for x in t
+        (x < 0 || x > 255) &&
+            throw(ArgumentError("Weight component $x is out of range for UInt8 (0–255)"))
+    end
+    return SUNIrrep{N}(map(UInt8, t))
+end
+
+SUNIrrep(t::NTuple{N, Int}) where {N} = SUNIrrep{N}(t)
+SUNIrrep(::Tuple{}) = throw(ArgumentError("Cannot construct SUNIrrep{0}"))
 SUNIrrep(args::Vararg{Int, N}) where {N} = SUNIrrep{N}(args)
-SUNIrrep{N}(args::Vararg{Int}) where {N} = SUNIrrep{N}(args)
+SUNIrrep{N}(args::Vararg{Int}) where {N} = SUNIrrep{N}(NTuple{N, Int}(args))
 
 SUNIrrep(a::Vector{Int}) = SUNIrrep{length(a) + 1}(a)
 function SUNIrrep{N}(a::Vector{Int}) where {N}
@@ -87,7 +97,7 @@ end
 _normalize(s::SUNIrrep) = (I = weight(s); return SUNIrrep(I .- I[end]))
 
 Base.getproperty(s::SUNIrrep{N}, f::Symbol) where {N} = f == :N ? N : f == :I ? weight(s) : getfield(s, f)
-weight(s::SUNIrrep) = getfield(s, :I)
+weight(s::SUNIrrep) = map(Int, getfield(s, :I))
 
 function TensorKitSectors.dim(s::SUNIrrep)
     N = s.N
