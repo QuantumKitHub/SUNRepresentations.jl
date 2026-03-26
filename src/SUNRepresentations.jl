@@ -13,6 +13,7 @@ export SUNIrrep, basis, weight, Zweight, creation, annihilation, highest_weight,
 export directproduct, CGC
 export SU, SU₃, SU₄, SU₅, SU3Irrep, SU4Irrep, SU5Irrep
 export dynkin_label, congruency
+export casimir
 
 """
     struct SUNIrrep{N} <: AbstractIrrep{SU{N}}
@@ -100,6 +101,34 @@ function TensorKitSectors.dim(s::SUNIrrep)
 end
 
 include("gtpatterns.jl")
+
+"""
+    casimir(k::Int, irrep::SUNIrrep)
+
+Return the eigenvalue of the `k`-th order Casimir operator in the representation `irrep`.
+
+The formula is:
+```math
+C_k(\\lambda) = \\frac{1}{2} \\left[ \\sum_{i=1}^{N} L_i^k - \\sum_{i=1}^{N} \\rho_i^k \\right]
+```
+where ``\\rho_i = (N+1-2i)/2`` are the Weyl vector components and
+``L_i = (\\lambda_i - \\bar\\lambda) + \\rho_i`` are the shifted traceless weights
+(``\\bar\\lambda = \\sum_j \\lambda_j / N``).
+
+The independent primitive Casimir operators have orders ``k = 2, 3, \\ldots, N``.
+Other values of `k` are valid but give dependent (or zero) results.
+"""
+function casimir(k::Int, irrep::SUNIrrep{N}) where {N}
+    λ = weight(irrep)
+    s = sum(λ)
+    c = zero(Rational{Int})
+    for i in 1:N
+        Li = (λ[i] - s // N) + (N + 1 - 2i) // 2
+        ρi = (N + 1 - 2i) // 2
+        c += Li^k - ρi^k
+    end
+    return c / 2
+end
 
 basis(s::SUNIrrep) = GTPatternIterator(s)
 
