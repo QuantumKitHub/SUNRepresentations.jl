@@ -46,6 +46,7 @@ module GenericTests
 end
 
 include("caching.jl")
+include("casimir.jl")
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
 include("sectors.jl")
 sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
