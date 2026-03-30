@@ -120,12 +120,12 @@ Other values of `k` are valid but give dependent (or zero) results.
 """
 function casimir(k::Int, irrep::SUNIrrep{N}) where {N}
     λ = weight(irrep)
-    s = sum(λ)
+    λ̄ = sum(λ) // N
     c = zero(Rational{Int})
     for i in 1:N
-        Li = (λ[i] - s // N) + (N + 1 - 2i) // 2
-        ρi = (N + 1 - 2i) // 2
-        c += Li^k - ρi^k
+        ρᵢ = (N + 1 - 2i) // 2
+        Lᵢ = (λ[i] - λ̄) + ρᵢ
+        c += Lᵢ^k - ρᵢ^k
     end
     return c / 2
 end
