@@ -6,8 +6,8 @@ using SUNRepresentations: cartanmatrix, inverse_cartanmatrix, dimname, dynkin_la
 using Latexify: latexify, @L_str
 
 @timedtestset "Basic tests for SUNIrrep{$N}:" for N in 2:5
-    I1 = SUNIrrep(tuple(sort(rand(1:9, N); rev = true)..., 1))
-    I2 = SUNIrrep(tuple(sort(rand(1:9, N); rev = true)..., 1))
+    I1 = SUNIrrep{N}(rand(1:9, N - 1)...)
+    I2 = SUNIrrep{N}(rand(1:9, N - 1)...)
     @constinferred dim(I1)
     d = 0
     for (I, NI) in @constinferred directproduct(I1, I2)
@@ -42,7 +42,7 @@ end
     for (i, I) in enumerate(Iterators.take(values(SU3Irrep), length(dimnames)))
         @test dimname(I) == dimnames[i]
         @test SU3Irrep(dimnames[i]) === I
-        @test SU3Irrep(collect(dynkin_label(I))) === I
+        @test SU3Irrep(dynkin_label(I)) === I
     end
 end
 
@@ -54,7 +54,7 @@ end
     for (i, I) in enumerate(Iterators.take(values(SU4Irrep), length(dimnames)))
         @test dimname(I) == dimnames[i]
         @test SU4Irrep(dimnames[i]) === I
-        @test SU4Irrep(collect(dynkin_label(I))) === I
+        @test SU4Irrep(dynkin_label(I)) === I
     end
 end
 
@@ -66,7 +66,7 @@ end
     for (i, I) in enumerate(Iterators.take(values(SU5Irrep), length(dimnames)))
         @test dimname(I) == dimnames[i]
         @test SU5Irrep(dimnames[i]) === I
-        @test SU5Irrep(collect(dynkin_label(I))) === I
+        @test SU5Irrep(dynkin_label(I)) === I
     end
 end
 

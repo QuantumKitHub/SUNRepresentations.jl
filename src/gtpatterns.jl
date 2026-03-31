@@ -88,30 +88,33 @@ function weight(m::GTPattern{N}) where {N}
     return w
 end
 
-# GTPatternIterator: iterate over all GT-patterns associated to a given irrep
+# GTPatternIterator: iterate over all GT-patterns associated to a given irrep.
+# Stores the top-row weight values directly as an NTuple{N, Int} to avoid going
+# through SUNIrrep normalisation for intermediate (possibly un-normalised) sub-rows.
 struct GTPatternIterator{N}
-    irrep::SUNIrrep{N}
+    toprow::NTuple{N, Int}
 end
+
+basis(s::SUNIrrep{N}) where {N} = GTPatternIterator{N}(weight(s))
 
 Base.IteratorSize(::Type{<:GTPatternIterator}) = Base.SizeUnknown()
 Base.IteratorEltype(::Type{<:GTPatternIterator}) = Base.HasEltype()
 Base.eltype(::GTPatternIterator{N}) where {N} = GTPattern{N, (N * (N + 1)) >> 1}
-Base.length(iter::GTPatternIterator) = dim(iter.irrep)
+# dim is shift-invariant (uses only differences), so the weight constructor gives the
+# same result regardless of whether toprow is normalised.
+Base.length(iter::GTPatternIterator{N}) where {N} = dim(SUNIrrep{N}(iter.toprow))
 
 function Base.iterate(iter::GTPatternIterator{1}, state = true)
-    if state
-        return GTPattern{1}((weight(iter.irrep)[1],)), false
-    else
-        return nothing
-    end
+    state || return nothing
+    return GTPattern{1}((iter.toprow[1],)), false
 end
 function Base.iterate(iter::GTPatternIterator{N}) where {N}
-    I = weight(iter.irrep)
+    I = iter.toprow
     iter1 = Iterators.product(reverse(ntuple(i -> I[i + 1]:I[i], Val(N - 1)))...)
     next1 = Base.iterate(iter1)
     next1 === nothing && return nothing # should not happen
     v, state1 = next1
-    iter2 = GTPatternIterator(SUNIrrep(reverse(v)))
+    iter2 = GTPatternIterator{N - 1}(reverse(v))
     next2 = Base.iterate(iter2)
     next2 === nothing && return nothing # should not happen
     pat, state2 = next2
@@ -125,21 +128,23 @@ function Base.iterate(iter::GTPatternIterator{N}, state) where {N}
         next1 = Base.iterate(iter1, state1)
         next1 === nothing && return nothing
         v, state1 = next1
-        iter2 = GTPatternIterator(SUNIrrep(reverse(v)))
+        iter2 = GTPatternIterator{N - 1}(reverse(v))
         next2 = Base.iterate(iter2)
         next2 === nothing && return nothing # should not happen
     end
     pat, state2 = next2
-    newpat = GTPattern{N}((weight(iter.irrep)..., pat.data...))
+    newpat = GTPattern{N}((iter.toprow..., pat.data...))
     return newpat, (iter1, state1, iter2, state2)
 end
 
-highest_weight(irrep::SUNIrrep{1}) = GTPattern{1}(weight(irrep))
-function highest_weight(irrep::SUNIrrep{N}) where {N}
-    I = weight(irrep)
-    d = highest_weight(SUNIrrep(Base.front(I)))
-    return GTPattern{N}((I..., d.data...))
+# Build the highest-weight GT pattern from a top row of actual weight values.
+_highest_weight_from_row(row::NTuple{1, Int}) = GTPattern{1}(row)
+function _highest_weight_from_row(row::NTuple{N, Int}) where {N}
+    sub = _highest_weight_from_row(Base.front(row))
+    return GTPattern{N}((row..., sub.data...))
 end
+
+highest_weight(irrep::SUNIrrep) = _highest_weight_from_row(weight(irrep))
 
 function creation(s::SUNIrrep{N}) where {N}
     d = dim(s)
@@ -170,3 +175,25 @@ function creation(s::SUNIrrep{N}) where {N}
 end
 
 annihilation(s::SUNIrrep) = [SparseArray(op') for op in creation(s)]
+
+# direct product: return dictionary with new irreps as keys, outer multiplicities as value
+function directproduct(s1::I, s2::I) where {N, I <: SUNIrrep{N}}
+    dim(s1) > dim(s2) && return directproduct(s2, s1)
+    result = Dict{I, Int}()
+    for m in basis(s1)
+        t = weight(s2)
+        bad_pattern = false
+        for k in 1:N, l in N:-1:k
+            bad_pattern && break
+            bkl = m[k, l]
+            checkbounds(m, k, l - 1) && (bkl -= m[k, l - 1])
+            t = Base.setindex(t, t[l] + bkl, l)
+            l > 1 && (bad_pattern = t[l - 1] < t[l])
+        end
+        if !(bad_pattern)
+            s = I(t)
+            result[s] = get(result, s, 0) + 1
+        end
+    end
+    return result
+end

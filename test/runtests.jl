@@ -47,9 +47,9 @@ end
 
 include("caching.jl")
 include("casimir.jl")
-sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
+sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
 include("sectors.jl")
-sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
+sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep)
 include("fusiontrees.jl")
 
 @testset "Aqua" verbose = true begin
