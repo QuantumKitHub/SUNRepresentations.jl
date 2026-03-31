@@ -6,8 +6,8 @@ using SUNRepresentations: cartanmatrix, inverse_cartanmatrix, dimname, dynkin_la
 using Latexify: latexify, @L_str
 
 @timedtestset "Basic tests for SUNIrrep{$N}:" for N in 2:5
-    I1 = SUNIrrep{N}(rand(1:9, N - 1)...)
-    I2 = SUNIrrep{N}(rand(1:9, N - 1)...)
+    I1 = SUNIrrep{N}(sort!(rand(1:9, N - 1); rev = true)..., 0)
+    I2 = SUNIrrep{N}(sort!(rand(1:9, N - 1); rev = true)..., 0)
     @constinferred dim(I1)
     d = 0
     for (I, NI) in @constinferred directproduct(I1, I2)
