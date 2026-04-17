@@ -10,12 +10,12 @@ The various constructors reflect the different conventions for specifying ``SU(N
 through weights, Dynkin labels or dimensional names.
 To uniquely identify the target irrep, the value of `N` must always be supplied.
 
-    SUNIrrep{N}(t::NTuple{N, Int})
+    SUNIrrep{N}(weight::NTuple{N, Int})
 
 Constructs from the N-component highest weight
 (shift-invariant: any representative is accepted; the stored Dynkin labels are the canonical form).
 
-    SUNIrrep{N}(t::NTuple{N - 1, Int})
+    SUNIrrep{N}(dynkin_label::NTuple{N - 1, Int})
 
 Constructs directly from the `N - 1` Dynkin labels.
 
@@ -26,7 +26,6 @@ Vararg form: `N` arguments are interpreted as weight components, `N - 1` as Dynk
     SUNIrrep{N}(name::AbstractString)
 
 Constructs from a dimensional name such as `"8"` or `"6'"`.
-The parameter `N` is required to uniquely identify the irrep.
 
 See also: [`weight`](@ref), [`dynkin_label`](@ref).
 """
