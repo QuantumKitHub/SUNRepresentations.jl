@@ -214,19 +214,20 @@ end
 
 cartanmatrix(I::SUNIrrep) = cartanmatrix(typeof(I))
 function cartanmatrix(::Type{<:SUNIrrep{N}}) where {N}
-    A = zeros(Int, N - 1, N - 1)
-    for i in 1:(N - 1), j in 1:(N - 1)
-        A[i, j] = 2 * (i == j) - (i == j + 1) - (i == j - 1)
+    A = Matrix{Int}(undef, N - 1, N - 1)
+    @inbounds for I in eachindex(IndexCartesian(), A)
+        i, j = Tuple(I)
+        A[I] = 2 * (i == j) - (i == j + 1) - (i == j - 1)
     end
     return A
 end
 
 inverse_cartanmatrix(I::SUNIrrep) = inverse_cartanmatrix(typeof(I))
 function inverse_cartanmatrix(::Type{<:SUNIrrep{N}}) where {N}
-    A⁻¹ = zeros(Int, N - 1, N - 1)
-    for i in 1:(N - 1), j in i:(N - 1)
-        A⁻¹[i, j] = i * (N - j)
-        A⁻¹[j, i] = A⁻¹[i, j]
+    A⁻¹ = Matrix{Int}(undef, N - 1, N - 1)
+    @inbounds for I in eachindex(IndexCartesian(), A⁻¹)
+        i, j = minmax(Tuple(I)...)
+        A⁻¹[I] = i * (N - j)
     end
     return A⁻¹ .// N
 end
