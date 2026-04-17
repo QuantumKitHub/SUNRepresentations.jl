@@ -75,10 +75,10 @@ The display of irreps can be changed in a persistent way by setting the `display
 julia> using SUNRepresentations
 julia> for mode in ["weight", "dynkin", "dimension"]
            SUNRepresentations.display_mode(mode)
-           @show SUNIrrep{4}(2,2,2,0)
+           @show SUNIrrep{4}(2, 2, 2, 0)
        end
 SUNIrrep{4}(2, 2, 2, 0) = Irrep[SU₄]((2, 2, 2, 0))
-SUNIrrep{4}(2, 2, 2, 0) = Irrep[SU₄]([0, 0, 2])
+SUNIrrep{4}(2, 2, 2, 0) = Irrep[SU₄]((0, 0, 2))
 SUNIrrep{4}(2, 2, 2, 0) = Irrep[SU₄]("10")
 ```
 
