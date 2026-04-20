@@ -30,7 +30,6 @@ TensorKitSectors.unit(::Type{I}) where {I <: SUNIrrep} = I(ntuple(Returns(zero(U
 
 TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
 TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic()
-Base.isreal(::Type{<:SUNIrrep}) = true
 
 function TensorKitSectors.:⊗(s1::I, s2::I) where {I <: SUNIrrep}
     return SectorSet{I}(keys(directproduct(s1, s2)))

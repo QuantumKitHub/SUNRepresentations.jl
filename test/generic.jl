@@ -21,6 +21,7 @@ using Latexify: latexify, @L_str
     (v, s) = @constinferred Nothing iterate(b)
     @constinferred Nothing iterate(b, s)
     v = @constinferred collect(b)
+    @test @constinferred(length(b)) == length(v)
     for i in 1:(length(v) - 1)
         @test isless(v[i], v[i + 1])
     end
@@ -30,8 +31,17 @@ using Latexify: latexify, @L_str
         @test parse(Int, s[17 + 2 * k]) == weight(I1)[k]
     end
 
+    @test I1.a == @constinferred dynkin_label(I1)
+    @test I1.I == @constinferred weight(I1)
+
     @test inv(cartanmatrix(I1)) ≈ inverse_cartanmatrix(I1)
     @test SUNIrrep{N}("1") === one(SUNIrrep{N})
+end
+
+@timedtestset "Illegal constructors" begin
+    @test_throws ArgumentError SUNIrrep((1, 2))
+    @test_throws ArgumentError SUNIrrep(1, 2)
+    @test_throws TypeError SUNIrrep{2, 2}((1, 2))
 end
 
 @timedtestset "Names of SU3Irrep:" begin

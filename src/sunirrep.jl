@@ -32,15 +32,12 @@ See also: [`weight`](@ref), [`dynkin_label`](@ref).
 struct SUNIrrep{N, M} <: AbstractIrrep{SU{N}}
     a::NTuple{M, UInt8}
     function SUNIrrep{N, M}(a::NTuple{M, UInt8}) where {N, M}
-        M == N - 1 || throw(
-            ArgumentError(
-                "SUNIrrep{$N,$M}: second type parameter must equal N-1 = $(N - 1)"
-            )
-        )
+        M == N - 1 || _throw_typeerror(N, M)
         return new{N, M}(a)
     end
 end
 
+@noinline _throw_typeerror(N, M) = throw(TypeError(:SUNIrrep, SUNIrrep{N, N - 1}, SUNIrrep{N, M}))
 # --- NTuple constructors (primary implementations in two-parameter form) ---
 # Conversion between weight and Dynkin labels:
 #
@@ -54,7 +51,7 @@ _dynkin_to_weight(a::NTuple{M, Integer}) where {M} =
     M == 0 ? (0,) : ((_dynkin_to_weight(Base.front(a)) .+ last(a))..., 0)
 
 function SUNIrrep{N, M}(t::NTuple{O, Integer}) where {N, M, O}
-    M == N - 1 || throw(TypeError(:SUNIrrep, SUNIrrep{N, N - 1}, SUNIrrep{N, M}))
+    M == N - 1 || _throw_typeerror(N, M)
 
     if O == N # Weight constructor: N components → SU(N). Normalises automatically.
         d = _weight_to_dynkin(t)
