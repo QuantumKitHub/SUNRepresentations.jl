@@ -51,7 +51,7 @@ _weight_to_dynkin(w::NTuple{N, Integer}) where {N} =
     ntuple(i -> Int(w[i]) - Int(w[i + 1]), Val(N - 1))
 
 _dynkin_to_weight(a::NTuple{M, Integer}) where {M} =
-    (Int.(reverse(cumsum(reverse(a))))..., 0)
+    M == 0 ? (0,) : ((_dynkin_to_weight(Base.front(a)) .+ last(a))..., 0)
 
 function SUNIrrep{N, M}(t::NTuple{O, Integer}) where {N, M, O}
     M == N - 1 || throw(TypeError(:SUNIrrep, SUNIrrep{N, N - 1}, SUNIrrep{N, M}))
