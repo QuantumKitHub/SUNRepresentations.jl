@@ -33,7 +33,7 @@ function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I
     return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= 100 * N]), 5)
 end
 
-sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5}, SUNIrrep{3} ⊠ SUNIrrep{3})
+sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
 @testset "Sector tests" begin
     for sector in sectorlist
         SectorTestSuite.test_sector(sector)
@@ -53,8 +53,8 @@ end
 @testset "Caching tests" begin
     include("caching.jl")
 end
-
-sectorlist = (SUNIrrep{3}, SUNIrrep{4}, SUNIrrep{5})
+include("casimir.jl")
+sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep)
 include("fusiontrees.jl")
 
 @testset "Aqua" verbose = true begin

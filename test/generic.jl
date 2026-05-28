@@ -6,8 +6,8 @@ using SUNRepresentations: cartanmatrix, inverse_cartanmatrix, dimname, dynkin_la
 using Latexify: latexify, @L_str
 
 @timedtestset "Basic tests for SUNIrrep{$N}:" for N in 2:5
-    I1 = SUNIrrep(tuple(sort(rand(1:9, N); rev = true)..., 1))
-    I2 = SUNIrrep(tuple(sort(rand(1:9, N); rev = true)..., 1))
+    I1 = SUNIrrep{N}(sort!(rand(1:9, N - 1); rev = true)..., 0)
+    I2 = SUNIrrep{N}(sort!(rand(1:9, N - 1); rev = true)..., 0)
     @constinferred dim(I1)
     d = 0
     for (I, NI) in @constinferred directproduct(I1, I2)
@@ -21,6 +21,7 @@ using Latexify: latexify, @L_str
     (v, s) = @constinferred Nothing iterate(b)
     @constinferred Nothing iterate(b, s)
     v = @constinferred collect(b)
+    @test @constinferred(length(b)) == length(v)
     for i in 1:(length(v) - 1)
         @test isless(v[i], v[i + 1])
     end
@@ -30,8 +31,17 @@ using Latexify: latexify, @L_str
         @test parse(Int, s[17 + 2 * k]) == weight(I1)[k]
     end
 
+    @test I1.a == @constinferred dynkin_label(I1)
+    @test I1.I == @constinferred weight(I1)
+
     @test inv(cartanmatrix(I1)) ≈ inverse_cartanmatrix(I1)
     @test SUNIrrep{N}("1") === unit(SUNIrrep{N})
+end
+
+@timedtestset "Illegal constructors" begin
+    @test_throws ArgumentError SUNIrrep((1, 2))
+    @test_throws ArgumentError SUNIrrep(1, 2)
+    @test_throws TypeError SUNIrrep{2, 2}((1, 2))
 end
 
 @timedtestset "Names of SU3Irrep:" begin
@@ -42,7 +52,7 @@ end
     for (i, I) in enumerate(Iterators.take(values(SU3Irrep), length(dimnames)))
         @test dimname(I) == dimnames[i]
         @test SU3Irrep(dimnames[i]) === I
-        @test SU3Irrep(collect(dynkin_label(I))) === I
+        @test SU3Irrep(dynkin_label(I)) === I
     end
 end
 
@@ -54,7 +64,7 @@ end
     for (i, I) in enumerate(Iterators.take(values(SU4Irrep), length(dimnames)))
         @test dimname(I) == dimnames[i]
         @test SU4Irrep(dimnames[i]) === I
-        @test SU4Irrep(collect(dynkin_label(I))) === I
+        @test SU4Irrep(dynkin_label(I)) === I
     end
 end
 
@@ -66,7 +76,7 @@ end
     for (i, I) in enumerate(Iterators.take(values(SU5Irrep), length(dimnames)))
         @test dimname(I) == dimnames[i]
         @test SU5Irrep(dimnames[i]) === I
-        @test SU5Irrep(collect(dynkin_label(I))) === I
+        @test SU5Irrep(dynkin_label(I)) === I
     end
 end
 

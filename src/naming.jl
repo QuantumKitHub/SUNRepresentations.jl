@@ -21,23 +21,7 @@ function Base.show(io::IO, s::SUNIrrep)
     return nothing
 end
 
-# Dynkin labels
-# -------------
-
-dynkinname(I::SUNIrrep) = "[$(join(dynkin_label(I), ", "))]"
-
-"""
-    dynkin_label(I::SUNIrrep)
-
-Gives the labels of the Dynkin diagram of the SU(N) irrep `I` as a tuple of `N - 1`
-integers. These are related to the Young Tableau by `aᵢ = λᵢ - λᵢ₊₁` where `λᵢ` is the
-number of boxes in the `i`th row of the Young Tableau.
-"""
-dynkin_label(I::SUNIrrep{N}) where {N} = Z2weight(highest_weight(I))
-
-# Weight names
-# ------------
-
+dynkinname(I::SUNIrrep) = string(dynkin_label(I))
 weightname(I::SUNIrrep) = string(weight(I))
 
 # Dimensional names
@@ -45,55 +29,14 @@ weightname(I::SUNIrrep) = string(weight(I))
 
 max_dynkin_label(::Type{<:SUNIrrep}) = 5
 
-"""
-    congruency(I::SUNIrrep)
-
-Returns the congruency class of the SU(N) irrep `I`, which expresses to what class of the ℤₙ-grading the irrep belongs.
-"""
-function congruency(I::SUNIrrep{N}) where {N}
-    return sum(((k, aₖ),) -> aₖ * k, enumerate(dynkin_label(I))) % N
-end
-
-cartanmatrix(I::SUNIrrep) = cartanmatrix(typeof(I))
-function cartanmatrix(::Type{SUNIrrep{N}}) where {N}
-    A = zeros(Int, N - 1, N - 1)
-    for i in 1:(N - 1), j in 1:(N - 1)
-        A[i, j] = 2 * (i == j) - (i == j + 1) - (i == j - 1)
-    end
-    return A
-end
-inverse_cartanmatrix(I::SUNIrrep) = inverse_cartanmatrix(typeof(I))
-function inverse_cartanmatrix(::Type{SUNIrrep{N}}) where {N}
-    A⁻¹ = zeros(Int, N - 1, N - 1)
-    for i in 1:(N - 1), j in i:(N - 1)
-        A⁻¹[i, j] = i * (N - j)
-        A⁻¹[j, i] = A⁻¹[i, j]
-    end
-    return A⁻¹ .// N
-end
-
-"""
-    index(I::SUNIrrep)
-
-Returns the index of the SU(N) irrep `I`.
-"""
-function index(s::SUNIrrep)
-    N = s.N
-    w = dynkin_label(s)
-    metric = inverse_cartanmatrix(typeof(s))
-    id = dim(s) * dot(collect(w), metric, collect(w) .+ 2) // (N^2 - 1)
-    @assert denominator(id) == 1
-    return numerator(id)
-end
-
-function all_dynkin(::Type{SUNIrrep{N}}, maxdynkin::Int = 3) where {N}
+function all_dynkin(::Type{<:SUNIrrep{N}}, maxdynkin::Int = 3) where {N}
     return (
-        SUNIrrep(collect(I.I .- 1))
+        SUNIrrep{N}(I.I .- 1)  # I.I is NTuple{N-1}, subtract 1 for 0-based Dynkin labels
             for I in CartesianIndices(ntuple(k -> maxdynkin + 1, N - 1))
     )
 end
 
-function irreps_by_dim(::Type{SUNIrrep{N}}, d::Int, maxdynkin::Int = 3) where {N}
+function irreps_by_dim(::Type{<:SUNIrrep{N}}, d::Int, maxdynkin::Int = 3) where {N}
     irreps = [I for I in all_dynkin(SUNIrrep{N}, maxdynkin) if dim(I) == d]
     return sort!(irreps; by = x -> (index(x), congruency(x), dynkin_label(x)))
 end
@@ -151,8 +94,8 @@ same, the one with the lowest Dynkin label, compared lexicographically, is chose
 """
 function dimname(s::SUNIrrep{N}) where {N}
     # for some reason in SU{3}, the 6-dimensional irreps have switched duality
-    s == SUNIrrep(2, 0, 0) && return generate_dimname(6, 0, false)
-    s == SUNIrrep(2, 2, 0) && return generate_dimname(6, 0, true)
+    s == SUNIrrep{3}(2, 0, 0) && return generate_dimname(6, 0, false)
+    s == SUNIrrep{3}(2, 2, 0) && return generate_dimname(6, 0, true)
 
     d, numprimes, conjugate = find_dimname(s)
     return generate_dimname(d, numprimes, conjugate)
