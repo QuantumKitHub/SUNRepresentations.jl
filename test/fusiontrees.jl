@@ -40,10 +40,6 @@ for I in sectorlist
         for i in 1:N
             out1 = ntuple(n -> randsector(I), N)
             out1 = Base.setindex(out1, in2, i)
-            while isempty(⊗(out1...))
-                out1 = ntuple(n -> randsector(I), N)
-                out1 = Base.setindex(out1, in2, i)
-            end
             in1 = rand(collect(⊗(out1...)))
             isdual1 = ntuple(n -> rand(Bool), N)
             isdual1 = Base.setindex(isdual1, false, i)
@@ -59,11 +55,8 @@ for I in sectorlist
             Af1 = convert(SparseArray, f1)
             Af2 = convert(SparseArray, f2)
             Af = TensorOperations.tensorcontract(
-                1:(2N), Af1,
-                [
-                    1:(i - 1); -1;
-                    N - 1 .+ ((i + 1):(N + 1))
-                ],
+                1:(2N),
+                Af1, [1:(i - 1); -1; N - 1 .+ ((i + 1):(N + 1))],
                 Af2, [i - 1 .+ (1:N); -1]
             )
             Af′ = zero(Af)
