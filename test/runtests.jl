@@ -5,12 +5,17 @@ using TensorKitSectors
 using TensorKit
 using SUNRepresentations
 using Combinatorics
+using TensorKit
+using TensorKit: ProductSector, fusiontensor, pentagon_equation, hexagon_equation,
+    FusionTreeBlock
 using TensorOperations
 using Base.Iterators: take
 using SparseArrayKit: SparseArray
 using LinearAlgebra: LinearAlgebra
 
 const TK = TensorKit
+
+_isone(x; kwargs...) = isapprox(x, one(x); kwargs...)
 
 Random.seed!(1234)
 Ti = time()
