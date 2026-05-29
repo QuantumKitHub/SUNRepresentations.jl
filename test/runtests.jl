@@ -23,13 +23,14 @@ testsuite_path = joinpath(
 include(testsuite_path)
 using .SectorTestSuite: randsector, smallset
 
-function SectorTestSuite.smallset(::Type{SUNIrrep{N}}) where {N}
+function SectorTestSuite.smallset(::Type{I}) where {I <: SUNIrrep}
+    N = rank(I)
     return smallset(I, 5, 10 * N)
 end
 function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1 <: SUNIrrep, I2 <: SUNIrrep}
     s1 = smallset(I1)
     s2 = smallset(I2)
-    N = first(s1).N
+    N = rank(I1)
     return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= 100 * N]), 5)
 end
 
