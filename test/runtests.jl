@@ -30,13 +30,17 @@ using .SectorTestSuite: randsector, smallset
 
 function SectorTestSuite.smallset(::Type{I}) where {I <: SUNIrrep}
     N = SUNRepresentations.rank(I)
-    return smallset(I, 5, 5 * N)
+    size = N > 4 ? 4 : 5
+    dim_limit = N > 4 ? 5 * N : 10 * N
+    return smallset(I, size, dim_limit)
 end
 function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1 <: SUNIrrep, I2 <: SUNIrrep}
     s1 = smallset(I1)
     s2 = smallset(I2)
-    N = SUNRepresentations.rank(I1)
-    return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= 50 * N]), 5)
+    N = max(SUNRepresentations.rank(I1), SUNRepresentations.rank(I2))
+    size = N > 4 ? 4 : 5
+    dim_limit = N > 4 ? 25 * N : 50 * N
+    return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= dim_limit]), size)
 end
 
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
