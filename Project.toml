@@ -1,7 +1,7 @@
 name = "SUNRepresentations"
 uuid = "1a50b95c-7aac-476d-a9ce-2bfc675fc617"
 authors = ["Maarten Van Damme <Maarten.VanDamme@UGent.be>, Jutho Haegeman <jutho.haegeman@ugent.be> and Lukas Devos <lukas.devos@UGent.be>"]
-version = "0.4.0"
+version = "0.4.1"
 
 [deps]
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
@@ -35,7 +35,7 @@ RationalRoots = "0.1 - 0.2"
 Scratch = "1"
 SparseArrayKit = "0.4"
 TensorKit = "0.16.4"
-TensorKitSectors = "0.3.7"
+TensorKitSectors = "0.3.9"
 TensorOperations = "5"
 Test = "1"
 TestExtras = "0.3"
@@ -54,6 +54,3 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [targets]
 test = ["Test", "Random", "Combinatorics", "TestExtras", "TensorKit", "TupleTools", "Latexify", "Aqua"]
-
-[sources]
-TensorKitSectors = {url = "https://github.com/QuantumKitHub/TensorKitSectors.jl", rev = "main"}
