@@ -1,3 +1,7 @@
 Manifest.toml
 LocalPreferences.toml
 .vscode
+
+# research/: track sources (.typ, .md, .bib), not fetched papers or compiled output
+research/pdfs/
+research/*.pdf
