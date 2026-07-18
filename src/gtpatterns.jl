@@ -197,3 +197,14 @@ function directproduct(s1::I, s2::I) where {N, I <: SUNIrrep{N}}
     end
     return result
 end
+
+function cartan_operators(s::SUNIrrep{N}) where {N}
+    d = dim(s)
+    result = [SparseArray{RationalRoot{Int}}(undef, (d, d)) for i in 1:(N - 1)]
+    for (i, m) in enumerate(basis(s))
+        for (l, W) in enumerate(Zweight(m))
+            result[l][i, i] = W
+        end
+    end
+    return result
+end

@@ -5,6 +5,24 @@ Global cache for storing Clebsch-Gordan Coefficients.
 """
 const CGC_CACHE = LRU{Any, SparseArray{Float64, 4}}(; maxsize = 100_000)
 
+"""
+    REDUCED_CGC_CACHE = LRU{Any, Any}(; maxsize = 100_000)
+
+Global RAM cache for storing reduced (SU(N-1)×U(1)) Clebsch-Gordan Coefficients (the `TensorMap`s
+returned by [`reduced_CGC`](@ref)). Memoization is required for the recursive F/R tower: each
+`Fsymbol` builds several `reduced_CGC`s, and each of those recurses through the whole lower tower.
+"""
+const REDUCED_CGC_CACHE = LRU{Any, Any}(; maxsize = 100_000)
+
+"""
+    REDUCED_COSET_CACHE = LRU{Any, Any}(; maxsize = 100_000)
+
+Global RAM cache for the reduced coset ladder operators (`reduced_raising_operators` /
+`reduced_lowering_operators`). They are consumed repeatedly across `reduced_CGC` calls and each is
+built by a per-subblock densification, so memoization is important.
+"""
+const REDUCED_COSET_CACHE = LRU{Any, Any}(; maxsize = 100_000)
+
 # convert sector to string key
 _key(s::SUNIrrep) = string(weight(s))
 
@@ -123,6 +141,13 @@ function ram_cache_info(io::IO = stdout)
     else
         info = LRUCache.cache_info(CGC_CACHE)
         println(io, "CGC RAM cache info:")
+        println(io, info)
+    end
+    if isempty(REDUCED_CGC_CACHE)
+        println(io, "reduced CGC RAM cache is empty.")
+    else
+        info = LRUCache.cache_info(REDUCED_CGC_CACHE)
+        println(io, "reduced CGC RAM cache info:")
         println(io, info)
     end
     return nothing

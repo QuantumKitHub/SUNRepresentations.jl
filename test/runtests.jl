@@ -55,6 +55,8 @@ include("sectors.jl")
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep)
 include("fusiontrees.jl")
 
+include("bootstrap.jl")
+
 @testset "Aqua" verbose = true begin
     # RationalRoots has ambiguities with Base/Core, so only test SUNRepresentations ambiguities
     # Intentional piracy of Rep[SU{N}] etc
