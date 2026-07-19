@@ -5,6 +5,20 @@ const TOL_GAUGE = 1.0e-11
 const TOL_PURGE = 1.0e-14
 # tolerance for dropping zeros
 
+"""
+    USE_DISK_CACHE
+
+Global toggle (`Ref{Bool}`, default `true`) for whether CGCs are read from / written to the on-disk
+cache. The RAM cache (`CGC_CACHE`) is always used. Disable it during development so that stale
+on-disk data from a previous convention cannot taint fresh computations:
+
+    SUNRepresentations.disable_disk_cache!()   # RAM-only, never touches disk
+    SUNRepresentations.enable_disk_cache!()     # restore default disk caching
+"""
+const USE_DISK_CACHE = Ref(true)
+disable_disk_cache!() = (USE_DISK_CACHE[] = false; nothing)
+enable_disk_cache!() = (USE_DISK_CACHE[] = true; nothing)
+
 function weightmap(basis)
     N = first(basis).N
     # basis could be a GTPatternIterator{N}, but also a Vector{GTPattern{N}}
@@ -23,9 +37,13 @@ end
 
 @noinline function _get_CGC(::Type{T}, @nospecialize(key)) where {T}
     d::SparseArray{T, 4} = get!(CGC_CACHE, key) do
-        result = tryread(T, key...)
-        isnothing(result) || return result
-        return generate_CGC(T, key...)
+        if USE_DISK_CACHE[]
+            result = tryread(T, key...)
+            isnothing(result) || return result
+            return generate_CGC(T, key...)
+        else
+            return _CGC(T, key...)  # RAM-only; never read from or written to disk
+        end
     end
     return d
 end
