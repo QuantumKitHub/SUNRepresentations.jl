@@ -75,15 +75,22 @@ function _Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep}
     (N1 == 0 || N2 == 0 || N3 == 0 || N4 == 0) &&
         return fill(zero(fusionscalartype(I)), N1, N2, N3, N4)
 
-    # computing first diagonal element
-    A = fusiontensor(a, b, e)
-    B = fusiontensor(e, c, d)[:, :, 1, :]
-    C = fusiontensor(b, c, f)
-    D = fusiontensor(a, f, d)[:, :, 1, :]
+    # F-symbol via a projector contraction on the compact SU(N-1)×U(1) `reduced_CGC` TensorMaps — no
+    # large SU(N) CGC is densified. The two `d` legs are traced and divided by `dim(d)` (the shared-
+    # line completeness relation); the four outer-multiplicity legs stay open ⇒ F is a genuine rank-4
+    # tensor for N≥3. Since `reduced_CGC` is gauge-matched to the dense/GT convention, this equals the
+    # dense reference-state F. See research/phase3-gauge-handoff.md.
+    A = reduced_CGC(a, b, e)
+    B = reduced_CGC(e, c, d)
+    C = reduced_CGC(b, c, f)
+    D = reduced_CGC(a, f, d)
 
-    @tensor F[-1, -2, -3, -4] := conj(D[1, 5, -4]) * conj(C[2, 4, 5, -3]) *
-        A[1, 2, 3, -1] * B[3, 4, -2]
-    return Array(F)
+    @tensor F[ne nd1; nf nd2] := A[α β; ε ne] * B[ε γ; δ nd1] *
+        conj(C[β γ; φ nf]) * conj(D[α φ; δ nd2])
+    # The typeassert is mandatory for scalartype inference: `reduced_CGC` is cached as `Any`, so
+    # without it `return_type(Fsymbol, …)` infers `Any` and TensorKit tries `zeros(Any, …)` when
+    # building product-sector tensors. A `convert` does not propagate; `::` does.
+    return (convert(Array, F) ./ dim(d))::Array{fusionscalartype(I), 4}
 end
 
 const RCACHE = LRU{Int, Any}(; maxsize = 10)
@@ -105,9 +112,11 @@ function _Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep}
 
     (N1 == 0 || N2 == 0) && return fill(zero(braidingscalartype(I)), N1, N2)
 
-    A = fusiontensor(a, b, c)[:, :, 1, :]
-    B = fusiontensor(b, a, c)[:, :, 1, :]
+    # R-symbol via a projector contraction on `reduced_CGC` (trace the coupled `c`, /dim(c)). The two
+    # outer-multiplicity legs stay open. Gauge-matched `reduced_CGC` ⇒ equals the dense reference-state R.
+    A = reduced_CGC(a, b, c)
+    B = reduced_CGC(b, a, c)
 
-    @tensor R[-1; -2] := conj(B[1, 2, -2]) * A[2, 1, -1]
-    return Array(R)
+    @tensor R[na; nb] := A[α β; γ na] * conj(B[β α; γ nb])
+    return (convert(Array, R) ./ dim(c))::Array{braidingscalartype(I), 2}
 end
