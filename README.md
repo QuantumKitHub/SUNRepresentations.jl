@@ -39,7 +39,7 @@ CGC disk cache info:
 * SU(3) - Float64 - 32 entries - 134.462 KiB
 ```
 
-The values are stored at `SUNRepresentations.cgc_cache_dir()`, which is a package-wide
+The values are stored at `SUNRepresentations.cgc_cache_dir()`, which by default is a package-wide
 scratchspace. Each file `CGC/N/T/s1/s2.jld2` contains coefficients with datatype `T` for
 the fusion of the `SU(N)` irreps `s1 ⊗ s2 → s3`, where `s3` runs over all possible fusion
 channels. The folder structure is as follows:
@@ -60,6 +60,22 @@ CGC/
 ├── 4/
 └── ...
 ```
+
+### Changing the disk cache location
+
+The location of the disk cache can be changed with `SUNRepresentations.cgc_cache_dir`, for
+example to keep it off a slow or quota-limited home directory:
+
+```julia-repl
+julia> SUNRepresentations.cgc_cache_dir("/scratch/cgc")
+
+julia> SUNRepresentations.cgc_cache_dir()
+"/scratch/cgc"
+```
+
+Passing `nothing` restores the default scratchspace, and `persist=true` stores the location
+in the active project's `LocalPreferences.toml`. Note that switching directories neither
+moves nor removes coefficients that were already cached elsewhere.
 
 ### Disabling the disk cache
 

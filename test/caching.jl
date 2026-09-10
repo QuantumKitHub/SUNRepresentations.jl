@@ -54,6 +54,38 @@ end
     end
 end
 
+@testset "Custom disk cache directory" begin
+    mktempdir() do dir
+        old = SUNRepresentations.cgc_cache_dir(dir)
+        try
+            @test old === nothing  # was using the default scratchspace
+            @test SUNRepresentations.cgc_cache_dir() == abspath(dir)
+            @test_throws ArgumentError SUNRepresentations.cgc_cache_dir("")
+
+            # cache is populated in the custom directory and read back from it
+            @test isempty(readdir(dir))
+            precompute_disk_cache(3, 1)
+            @test !isempty(readdir(dir))
+            @test isdir(joinpath(dir, "3", "Float64"))
+            @test occursin("SU(3)", sprint(SUNRepresentations.disk_cache_info))
+
+            s1 = s2 = SUNIrrep{3}(2, 1, 0)
+            reference = [copy(CGC(Float64, s1, s2, s3)) for s3 in s1 ⊗ s2]
+            empty!(SUNRepresentations.CGC_CACHE)
+            @test all(splat(≈), zip(reference, (CGC(Float64, s1, s2, s3) for s3 in s1 ⊗ s2)))
+
+            # unrelated data in the custom directory is left alone
+            touch(joinpath(dir, "keepme"))
+            clear_disk_cache!()
+            @test readdir(dir) == ["keepme"]
+        finally
+            SUNRepresentations.cgc_cache_dir(old)
+            empty!(SUNRepresentations.CGC_CACHE)
+        end
+        return @test SUNRepresentations.cgc_cache_dir() != abspath(dir)
+    end
+end
+
 @testset "Disk cache environment variable" begin
     old = SUNRepresentations.use_disk_cache()
     try

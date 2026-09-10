@@ -30,6 +30,8 @@ is also stored in the active project's `LocalPreferences.toml`. Note that writin
 preferences is not safe to do concurrently; on a cluster, prefer the
 `SUNREPRESENTATIONS_USE_DISK_CACHE` environment variable, which is read when the package is
 loaded and takes precedence over the stored preference.
+
+See also [`cgc_cache_dir`](@ref).
 """
 use_disk_cache() = _USE_DISK_CACHE[]
 function use_disk_cache(flag::Bool; persist::Bool = false)
@@ -57,17 +59,51 @@ end
 # Disk cache
 # ----------
 
+# an empty string means the default package-wide scratchspace
 const _CGC_CACHE_DIR = Ref{String}("")
 
 """
     cgc_cache_dir() -> String
+    cgc_cache_dir(path::Union{AbstractString,Nothing}; persist=false) -> Union{String,Nothing}
 
-Path of the package-wide scratchspace that holds the CGC disk cache, creating it if it does
-not exist yet.
+Query or set the directory that holds the CGC disk cache. By default this is a package-wide
+scratchspace, which is created upon first use. Passing a `path` makes the cache live there
+instead, while passing `nothing` restores the default. Setting the directory returns the
+previous setting, again as a `path` or as `nothing` for the default, so that it can be
+restored by feeding it back in.
+
+The directory is not created until something is actually written to it, and switching
+directories neither moves nor removes any coefficients that were already cached elsewhere.
+
+The setting is only changed for the current session, unless `persist=true`, in which case it
+is also stored in the active project's `LocalPreferences.toml`. Note that writing
+preferences is not safe to do concurrently.
+
+See also [`use_disk_cache`](@ref).
 """
 function cgc_cache_dir()
-    isempty(_CGC_CACHE_DIR[]) && (_CGC_CACHE_DIR[] = @get_scratch!("CGC"))
-    return _CGC_CACHE_DIR[]
+    dir = _CGC_CACHE_DIR[]
+    return isempty(dir) ? @get_scratch!("CGC") : dir
+end
+function cgc_cache_dir(path::Union{AbstractString, Nothing}; persist::Bool = false)
+    if path isa AbstractString && isempty(path)
+        throw(ArgumentError("Empty CGC cache directory, use `nothing` to restore the default."))
+    end
+    old = _CGC_CACHE_DIR[]
+    _CGC_CACHE_DIR[] = isnothing(path) ? "" : abspath(expanduser(path))
+    if persist
+        if isnothing(path)
+            @delete_preferences!("cgc_cache_dir")
+        else
+            @set_preferences!("cgc_cache_dir" => _CGC_CACHE_DIR[])
+        end
+    end
+    return isempty(old) ? nothing : old
+end
+
+function _init_cgc_cache_dir!()
+    _CGC_CACHE_DIR[] = @load_preference("cgc_cache_dir", "")
+    return nothing
 end
 
 function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T = Float64) where {N}
@@ -183,9 +219,17 @@ function clear_disk_cache!(N)
     return nothing
 end
 function clear_disk_cache!()
-    Scratch.clear_scratchspaces!(SUNRepresentations)
-    # the scratchspace is gone, so make sure it is recreated on next use
-    _CGC_CACHE_DIR[] = ""
+    if isempty(_CGC_CACHE_DIR[])
+        Scratch.clear_scratchspaces!(SUNRepresentations)
+    else
+        # a custom directory may hold unrelated data, so only remove the SU(N) subtrees
+        dir = _CGC_CACHE_DIR[]
+        isdir(dir) || return nothing
+        for entry in readdir(dir; join = true)
+            isdir(entry) && !isnothing(tryparse(Int, basename(entry))) &&
+                rm(entry; recursive = true)
+        end
+    end
     return nothing
 end
 
