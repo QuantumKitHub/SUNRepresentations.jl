@@ -250,10 +250,9 @@ end
 Print information about the CGC disk cache to `io`. If `clean=true`, remove any corrupted files.
 """
 function disk_cache_info(io::IO = stdout; clean = false)
-    if !use_disk_cache()
-        println(io, "CGC disk cache is disabled.")
-        return nothing
-    end
+    cache_dir = cgc_cache_dir()
+    use_disk_cache() ||
+        println(io, "CGC disk cache is disabled, showing contents of $cache_dir:")
     cache_dir = cgc_cache_dir()
     if !isdir(cache_dir) || isempty(readdir(cache_dir))
         println(io, "CGC disk cache is empty.")
