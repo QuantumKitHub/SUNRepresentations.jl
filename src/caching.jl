@@ -62,6 +62,10 @@ end
 # an empty string means the default package-wide scratchspace
 const _CGC_CACHE_DIR = Ref{String}("")
 
+# same UUID that `Scratch.@get_scratch!` would resolve, used to locate the default
+# scratchspace without creating it
+const _PKG_UUID = Base.PkgId(@__MODULE__).uuid
+
 """
     cgc_cache_dir() -> String
     cgc_cache_dir(path::Union{AbstractString,Nothing}; persist=false) -> Union{String,Nothing}
@@ -72,8 +76,9 @@ instead, while passing `nothing` restores the default. Setting the directory ret
 previous setting, again as a `path` or as `nothing` for the default, so that it can be
 restored by feeding it back in.
 
-The directory is not created until something is actually written to it, and switching
-directories neither moves nor removes any coefficients that were already cached elsewhere.
+The directory is not created until something is actually written to it, so querying it has
+no side effects. Switching directories neither moves nor removes any coefficients that were
+already cached elsewhere.
 
 The setting is only changed for the current session, unless `persist=true`, in which case it
 is also stored in the active project's `LocalPreferences.toml`. Note that writing
@@ -83,7 +88,7 @@ See also [`use_disk_cache`](@ref).
 """
 function cgc_cache_dir()
     dir = _CGC_CACHE_DIR[]
-    return isempty(dir) ? @get_scratch!("CGC") : dir
+    return isempty(dir) ? Scratch.scratch_dir(string(_PKG_UUID), "CGC") : dir
 end
 function cgc_cache_dir(path::Union{AbstractString, Nothing}; persist::Bool = false)
     if path isa AbstractString && isempty(path)
@@ -104,6 +109,15 @@ end
 function _init_cgc_cache_dir!()
     _CGC_CACHE_DIR[] = @load_preference("cgc_cache_dir", "")
     return nothing
+end
+
+# Create the cache directory if it does not exist yet. For the default scratchspace this
+# goes through `Scratch`, so that the space keeps being registered for garbage collection.
+function _ensure_cgc_cache_dir!()
+    isempty(_CGC_CACHE_DIR[]) && return @get_scratch!("CGC")
+    dir = _CGC_CACHE_DIR[]
+    isdir(dir) || mkpath(dir)
+    return dir
 end
 
 function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T = Float64) where {N}
@@ -154,6 +168,7 @@ function generate_CGC(
     CGCs = _CGC(T, s1, s2, s3)
     use_disk_cache() || return CGCs
 
+    _ensure_cgc_cache_dir!()
     fn = cgc_cachepath(s1, s2, T)
     isdir(dirname(fn)) || mkpath(dirname(fn))
 
@@ -223,7 +238,7 @@ function clear_disk_cache!()
         Scratch.clear_scratchspaces!(SUNRepresentations)
     else
         # a custom directory may hold unrelated data, so only remove the SU(N) subtrees
-        dir = _CGC_CACHE_DIR[]
+        dir = cgc_cache_dir()
         isdir(dir) || return nothing
         for entry in readdir(dir; join = true)
             isdir(entry) && !isnothing(tryparse(Int, basename(entry))) &&
@@ -253,7 +268,6 @@ function disk_cache_info(io::IO = stdout; clean = false)
     cache_dir = cgc_cache_dir()
     use_disk_cache() ||
         println(io, "CGC disk cache is disabled, showing contents of $cache_dir:")
-    cache_dir = cgc_cache_dir()
     if !isdir(cache_dir) || isempty(readdir(cache_dir))
         println(io, "CGC disk cache is empty.")
         return nothing
