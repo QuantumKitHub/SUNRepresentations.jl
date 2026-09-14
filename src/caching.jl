@@ -59,12 +59,15 @@ end
 # Disk cache
 # ----------
 
-# an empty string means the default package-wide scratchspace
-const _CGC_CACHE_DIR = Ref{String}("")
+# `nothing` means the default package-wide scratchspace
+const _CGC_CACHE_DIR = Ref{Union{Nothing, String}}(nothing)
 
 # same UUID that `Scratch.@get_scratch!` would resolve, used to locate the default
 # scratchspace without creating it
 const _PKG_UUID = Base.PkgId(@__MODULE__).uuid
+
+# is the cache living in the default, `Scratch`-managed scratchspace?
+_default_cache_dir() = isnothing(_CGC_CACHE_DIR[])
 
 """
     cgc_cache_dir() -> String
@@ -87,15 +90,14 @@ preferences is not safe to do concurrently.
 See also [`use_disk_cache`](@ref).
 """
 function cgc_cache_dir()
-    dir = _CGC_CACHE_DIR[]
-    return isempty(dir) ? Scratch.scratch_dir(string(_PKG_UUID), "CGC") : dir
+    return @something _CGC_CACHE_DIR[] Scratch.scratch_dir(string(_PKG_UUID), "CGC")
 end
 function cgc_cache_dir(path::Union{AbstractString, Nothing}; persist::Bool = false)
     if path isa AbstractString && isempty(path)
         throw(ArgumentError("Empty CGC cache directory, use `nothing` to restore the default."))
     end
     old = _CGC_CACHE_DIR[]
-    _CGC_CACHE_DIR[] = isnothing(path) ? "" : abspath(expanduser(path))
+    _CGC_CACHE_DIR[] = isnothing(path) ? nothing : abspath(expanduser(path))
     if persist
         if isnothing(path)
             @delete_preferences!("cgc_cache_dir")
@@ -103,21 +105,19 @@ function cgc_cache_dir(path::Union{AbstractString, Nothing}; persist::Bool = fal
             @set_preferences!("cgc_cache_dir" => _CGC_CACHE_DIR[])
         end
     end
-    return isempty(old) ? nothing : old
+    return old
 end
 
 function _init_cgc_cache_dir!()
-    _CGC_CACHE_DIR[] = @load_preference("cgc_cache_dir", "")
+    _CGC_CACHE_DIR[] = @load_preference("cgc_cache_dir", nothing)
     return nothing
 end
 
 # Create the cache directory if it does not exist yet. For the default scratchspace this
 # goes through `Scratch`, so that the space keeps being registered for garbage collection.
 function _ensure_cgc_cache_dir!()
-    isempty(_CGC_CACHE_DIR[]) && return @get_scratch!("CGC")
-    dir = _CGC_CACHE_DIR[]
-    isdir(dir) || mkpath(dir)
-    return dir
+    _default_cache_dir() && return @get_scratch!("CGC")
+    return mkpath(cgc_cache_dir())
 end
 
 function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T = Float64) where {N}
@@ -234,7 +234,7 @@ function clear_disk_cache!(N)
     return nothing
 end
 function clear_disk_cache!()
-    if isempty(_CGC_CACHE_DIR[])
+    if _default_cache_dir()
         Scratch.clear_scratchspaces!(SUNRepresentations)
     else
         # a custom directory may hold unrelated data, so only remove the SU(N) subtrees
