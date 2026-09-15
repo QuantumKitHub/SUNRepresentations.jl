@@ -85,25 +85,3 @@ end
         return @test SUNRepresentations.cgc_cache_dir() != abspath(dir)
     end
 end
-
-@testset "Disk cache environment variable" begin
-    old = SUNRepresentations.use_disk_cache()
-    try
-        for flag in (false, true)
-            withenv("SUNREPRESENTATIONS_USE_DISK_CACHE" => string(flag)) do
-                SUNRepresentations._init_use_disk_cache!()
-                return @test SUNRepresentations.use_disk_cache() == flag
-            end
-        end
-        # invalid values are ignored, falling back to the preference
-        withenv("SUNREPRESENTATIONS_USE_DISK_CACHE" => "yes") do
-            @test_logs (:warn,) SUNRepresentations._init_use_disk_cache!()
-            return @test SUNRepresentations.use_disk_cache() ==
-                SUNRepresentations.Preferences.load_preference(
-                SUNRepresentations, "use_disk_cache", true
-            )
-        end
-    finally
-        SUNRepresentations.use_disk_cache(old)
-    end
-end

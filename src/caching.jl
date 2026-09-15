@@ -27,9 +27,7 @@ recomputed in the next one.
 
 The setting is only changed for the current session, unless `persist=true`, in which case it
 is also stored in the active project's `LocalPreferences.toml`. Note that writing
-preferences is not safe to do concurrently; on a cluster, prefer the
-`SUNREPRESENTATIONS_USE_DISK_CACHE` environment variable, which is read when the package is
-loaded and takes precedence over the stored preference.
+preferences is not safe to do concurrently.
 
 See also [`cgc_cache_dir`](@ref).
 """
@@ -42,16 +40,6 @@ function use_disk_cache(flag::Bool; persist::Bool = false)
 end
 
 function _init_use_disk_cache!()
-    val = get(ENV, "SUNREPRESENTATIONS_USE_DISK_CACHE", nothing)
-    if !isnothing(val)
-        flag = tryparse(Bool, lowercase(strip(val)))
-        if isnothing(flag)
-            @warn "Ignoring SUNREPRESENTATIONS_USE_DISK_CACHE=$(repr(val)), expected \"true\" or \"false\"."
-        else
-            _USE_DISK_CACHE[] = flag
-            return nothing
-        end
-    end
     _USE_DISK_CACHE[] = @load_preference("use_disk_cache", true)
     return nothing
 end
@@ -265,15 +253,16 @@ end
 Print information about the CGC disk cache to `io`. If `clean=true`, remove any corrupted files.
 """
 function disk_cache_info(io::IO = stdout; clean = false)
+    # the cache contents are reported either way, they are simply not used when disabled
+    suffix = use_disk_cache() ? "" : " (disabled)"
     cache_dir = cgc_cache_dir()
-    use_disk_cache() ||
-        println(io, "CGC disk cache is disabled, showing contents of $cache_dir:")
     if !isdir(cache_dir) || isempty(readdir(cache_dir))
-        println(io, "CGC disk cache is empty.")
+        println(io, "CGC disk cache is empty$suffix.")
         return nothing
     end
-    println(io, "CGC disk cache info:")
-    println(io, "====================")
+    header = "CGC disk cache info$suffix:"
+    println(io, header)
+    println(io, "="^length(header))
 
     for fldr_N in readdir(cache_dir; join = true)
         isdir(fldr_N) || continue

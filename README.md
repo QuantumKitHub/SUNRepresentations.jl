@@ -93,17 +93,17 @@ julia> SUNRepresentations.cache_info()
 CGC RAM cache info:
 CacheInfo(; hits=0, misses=0, currentsize=0, maxsize=100000)
 
-CGC disk cache is disabled.
+CGC disk cache info (disabled):
+===============================
+* SU(3) - Float64 - 32 entries - 134.462 KiB
 ```
+
+Disabling the cache does not touch anything that is already stored, so the contents are
+still reported; they are simply neither read nor written for as long as the cache is
+disabled.
 
 Passing `persist=true` additionally stores the setting in the active project's
-`LocalPreferences.toml`. Since concurrent writes to that file are not safe, the setting can
-also be controlled through the `SUNREPRESENTATIONS_USE_DISK_CACHE` environment variable,
-which is read when the package is loaded and takes precedence over the stored preference:
-
-```bash
-export SUNREPRESENTATIONS_USE_DISK_CACHE=false
-```
+`LocalPreferences.toml`. Note that writing preferences is not safe to do concurrently.
 
 ## Conventions
 
