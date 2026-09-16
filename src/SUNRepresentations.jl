@@ -21,4 +21,10 @@ include("clebschgordan.jl")
 include("sector.jl")
 include("naming.jl")
 
+function __init__()
+    _init_use_disk_cache!()
+    _init_cgc_cache_dir!()
+    return nothing
+end
+
 end

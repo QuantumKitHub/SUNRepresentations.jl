@@ -39,7 +39,7 @@ CGC disk cache info:
 * SU(3) - Float64 - 32 entries - 134.462 KiB
 ```
 
-The values are stored at `SUNRepresentations.CGC_CACHE_PATH`, which is a package-wide
+The values are stored at `SUNRepresentations.cgc_cache_dir()`, which by default is a package-wide
 scratchspace. Each file `CGC/N/T/s1/s2.jld2` contains coefficients with datatype `T` for
 the fusion of the `SU(N)` irreps `s1 ⊗ s2 → s3`, where `s3` runs over all possible fusion
 channels. The folder structure is as follows:
@@ -60,6 +60,50 @@ CGC/
 ├── 4/
 └── ...
 ```
+
+### Changing the disk cache location
+
+The location of the disk cache can be changed with `SUNRepresentations.cgc_cache_dir`, for
+example to keep it off a slow or quota-limited home directory:
+
+```julia-repl
+julia> SUNRepresentations.cgc_cache_dir("/scratch/cgc")
+
+julia> SUNRepresentations.cgc_cache_dir()
+"/scratch/cgc"
+```
+
+Passing `nothing` restores the default scratchspace, and `persist=true` stores the location
+in the active project's `LocalPreferences.toml`. Note that switching directories neither
+moves nor removes coefficients that were already cached elsewhere.
+
+### Disabling the disk cache
+
+Reading from and writing to the disk cache is synchronized between processes using file
+locks. On shared filesystems such lock files are often unreliable or slow, which can stall
+computations. The disk cache can therefore be disabled entirely, in which case coefficients
+are only cached in memory for the duration of the session and the scratchspace is never
+created:
+
+```julia-repl
+julia> SUNRepresentations.use_disk_cache(false)
+true
+
+julia> SUNRepresentations.cache_info()
+CGC RAM cache info:
+CacheInfo(; hits=0, misses=0, currentsize=0, maxsize=100000)
+
+CGC disk cache info (disabled):
+===============================
+* SU(3) - Float64 - 32 entries - 134.462 KiB
+```
+
+Disabling the cache does not touch anything that is already stored, so the contents are
+still reported; they are simply neither read nor written for as long as the cache is
+disabled.
+
+Passing `persist=true` additionally stores the setting in the active project's
+`LocalPreferences.toml`. Note that writing preferences is not safe to do concurrently.
 
 ## Conventions
 
