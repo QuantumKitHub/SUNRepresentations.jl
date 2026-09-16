@@ -15,7 +15,7 @@ const _USE_DISK_CACHE = Ref{Bool}(true)
 
 """
     use_disk_cache() -> Bool
-    use_disk_cache(flag::Bool; persist=false) -> Bool
+    use_disk_cache(flag::Bool; persist = false) -> Bool
 
 Query or set whether Clebsch-Gordan coefficients are cached on disk. Setting the flag
 returns the previous value.
@@ -25,7 +25,7 @@ scratchspace is never created, so no file locks are taken. The in-memory [`CGC_C
 is unaffected, meaning coefficients are still reused within a session but have to be
 recomputed in the next one.
 
-The setting is only changed for the current session, unless `persist=true`, in which case it
+The setting is only changed for the current session, unless `persist = true`, in which case it
 is also stored in the active project's `LocalPreferences.toml`. Note that writing
 preferences is not safe to do concurrently.
 
@@ -59,7 +59,7 @@ _default_cache_dir() = isnothing(_CGC_CACHE_DIR[])
 
 """
     cgc_cache_dir() -> String
-    cgc_cache_dir(path::Union{AbstractString,Nothing}; persist=false) -> Union{String,Nothing}
+    cgc_cache_dir(path::Union{AbstractString,Nothing}; persist = false) -> Union{String,Nothing}
 
 Query or set the directory that holds the CGC disk cache. By default this is a package-wide
 scratchspace, which is created upon first use. Passing a `path` makes the cache live there
