@@ -129,3 +129,13 @@ end
         @test latexify(I) == latexnames[i]
     end
 end
+
+@timedtestset "Dimension of SUNIrrep{$N}" for N in 2:12
+    # against the Weyl dimension formula in rational arithmetic
+    for _ in 1:10
+        I = SUNIrrep{N}(sort!(rand(0:9, N - 1); rev = true)..., 0)
+        w = weight(I)
+        @test dim(I) == prod((k2 - k1 + w[k1] - w[k2]) // (k2 - k1) for k2 in 2:N for k1 in 1:(k2 - 1))
+    end
+    @test dim(one(SUNIrrep{N})) == 1
+end

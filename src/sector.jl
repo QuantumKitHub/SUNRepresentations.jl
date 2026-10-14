@@ -37,14 +37,22 @@ end
 function TensorKitSectors.Nsymbol(s1::I, s2::I, s3::I) where {I <: SUNIrrep}
     return get(directproduct(s1, s2), s3, 0)
 end
+# Weyl dimension formula in integer arithmetic: the factors up to `k2` give the dimension of an
+# SU(k2) irrep, so that the division after every row of factors is exact
 function TensorKitSectors.dim(s::SUNIrrep{N}) where {N}
     I = weight(s)
-    dim = 1 // 1
-    for k2 in 2:N, k1 in 1:(k2 - 1)
-        dim *= (k2 - k1 + I[k1] - I[k2]) // (k2 - k1)
+    d = 1
+    for k2 in 2:N
+        num, den = Int128(d), Int128(1)
+        for k1 in 1:(k2 - 1)
+            num *= k2 - k1 + I[k1] - I[k2]
+            den *= k2 - k1
+        end
+        q, r = divrem(num, den)
+        @assert r == 0
+        d = Int(q)
     end
-    @assert denominator(dim) == 1
-    return numerator(dim)
+    return d
 end
 
 TensorKitSectors.sectorscalartype(::Type{<:SUNIrrep}) = Float64
