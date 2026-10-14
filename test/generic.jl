@@ -4,6 +4,7 @@ println("------------------------------------")
 
 using SUNRepresentations: cartanmatrix, inverse_cartanmatrix, dimname, dynkin_label
 using Latexify: latexify, @L_str
+using SUNRepresentations.TensorKitSectors: dual
 
 @timedtestset "Basic tests for SUNIrrep{$N}:" for N in 2:5
     I1 = SUNIrrep{N}(sort!(rand(1:9, N - 1); rev = true)..., 0)
@@ -138,4 +139,42 @@ end
         @test dim(I) == prod((k2 - k1 + w[k1] - w[k2]) // (k2 - k1) for k2 in 2:N for k1 in 1:(k2 - 1))
     end
     @test dim(one(SUNIrrep{N})) == 1
+end
+
+@timedtestset "Dimension of SUNIrrep{$N} from its basis" for N in 2:6
+    for s in Iterators.take(values(SUNIrrep{N}), 50)
+        @test dim(s) == count(Returns(true), basis(s))
+    end
+end
+
+@timedtestset "Large dimensions of SUNIrrep{$N}" for N in 2:7
+    # all Dynkin labels equal to a: dim = (a + 1)^(N(N - 1)/2)
+    for a in (1, 3, 10, 64, 255)
+        d = big(a + 1)^(N * (N - 1) ÷ 2)
+        s = SUNIrrep{N}(ntuple(Returns(a), N - 1))
+        if d <= typemax(Int)
+            @test dim(s) == d
+        else
+            @test_throws OverflowError dim(s)
+        end
+    end
+end
+
+@timedtestset "Dimensions of few-box irreps of SUNIrrep{$N}" for N in (6, 10, 22, 40)
+    e(k) = ntuple(i -> Int(i == k), N - 1)
+    I = SUNIrrep{N}
+    for (s, d) in [
+            (I(e(1)), N), (I(e(1) .+ e(N - 1)), N^2 - 1),
+            (I(e(2)), binomial(N, 2)), (I(e(3)), binomial(N, 3)),
+            (I(3 .* e(1)), binomial(N + 2, 3)), (I(e(1) .+ e(2)), N * (N^2 - 1) ÷ 3),
+        ]
+        @test dim(s) == dim(dual(s)) == d
+    end
+end
+
+@timedtestset "Dimension with large intermediate products" begin
+    # fits in an Int, while the products of the row-by-row Weyl formula overflow an Int128
+    s = SUNIrrep{22}(ntuple(i -> 3 * (i == 4) + 2 * (i == 16), 21))
+    w = weight(s)
+    @test dim(s) == prod(big(k2 - k1 + w[k1] - w[k2]) // (k2 - k1) for k2 in 2:22 for k1 in 1:(k2 - 1))
 end

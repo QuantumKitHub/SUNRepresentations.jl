@@ -37,23 +37,82 @@ end
 function TensorKitSectors.Nsymbol(s1::I, s2::I, s3::I) where {I <: SUNIrrep}
     return get(directproduct(s1, s2), s3, 0)
 end
-# Weyl dimension formula in integer arithmetic: the factors up to `k2` give the dimension of an
-# SU(k2) irrep, so that the division after every row of factors is exact
+# Exact bounds used below, with n the number of boxes:
+# - Dynkin labels are at most 255, so dim ≤ 256^(N(N - 1)/2) = 2^(4N(N - 1)) (all labels 255).
+#   Hence dim fits in an Int for N ≤ 4.
+# - dim ≤ Nⁿ (Schur-Weyl duality: the irrep appears in (ℂᴺ)^⊗n).
+# - dim(s) = dim(dual(s)), and nboxes(dual(s)) = N * λ₁ - nboxes(s).
 function TensorKitSectors.dim(s::SUNIrrep{N}) where {N}
+    N <= 5 && return weyldim(s)
+    # few boxes: the hook-content formula has n factors, the Weyl formula N(N - 1)/2
+    n, n̄ = nboxes(s), nboxes(dual(s))
+    min(n, n̄) < N * (N - 1) ÷ 2 || return weyldim(s)
+    return n <= n̄ ? hookcontentdim(s, n) : hookcontentdim(dual(s), n̄)
+end
+
+# Hook-content formula: dim = ∏_{boxes (i, c)} (N + c - i) / hook(i, c). The numerator is at most
+# (N + λ₁ - 1)ⁿ for n boxes, and the denominator divides it, which fixes the integer type up front.
+function hookcontentdim(s::SUNIrrep{N}, n::Int = nboxes(s)) where {N}
+    λ = weight(s)
+    nbits = n * (64 - leading_zeros(N + λ[1] - 1))
+    d = if nbits <= 62
+        hookcontentdim(Int, λ)
+    elseif nbits <= 126
+        hookcontentdim(Int128, λ)
+    else
+        hookcontentdim(BigInt, λ)
+    end
+    d <= typemax(Int) || throw_dimoverflow(s)
+    return Int(d)
+end
+function hookcontentdim(::Type{T}, λ::NTuple{N, Int}) where {T, N}
+    num = den = one(T)
+    L = something(findlast(>(0), λ), 0)
+    for c in 1:λ[1]
+        L = findprev(>=(c), λ, L)::Int # length of column c
+        for i in 1:L
+            num *= N + c - i
+            den *= λ[i] - c + L - i + 1
+        end
+    end
+    return div(num, den)
+end
+
+# Weyl dimension formula in integer arithmetic: the factors up to `k₂` give the dimension of an
+# SU(k₂) irrep, so that the division after every row of factors is exact. The factors of row k₂
+# are at most λ₁ + k₂ - 1, which bounds the product of that row; for N ≤ 6 it always fits in an
+# Int128 (and in an Int for N ≤ 4), otherwise this is checked once per row.
+function weyldim(s::SUNIrrep{N}) where {N}
+    N > 34 && return bigweyldim(s) # (N - 1)! does not fit in an Int128
+    T = N <= 4 ? Int : Int128
     I = weight(s)
     d = 1
-    for k2 in 2:N
-        num, den = Int128(d), Int128(1)
-        for k1 in 1:(k2 - 1)
-            num *= k2 - k1 + I[k1] - I[k2]
-            den *= k2 - k1
+    for k₂ in 2:N
+        if N > 6
+            nbits = (64 - leading_zeros(d)) + (k₂ - 1) * (64 - leading_zeros(I[1] + k₂ - 1))
+            nbits <= 126 || return bigweyldim(s)
+        end
+        num, den = T(d), T(1)
+        for k₁ in 1:(k₂ - 1)
+            num *= k₂ - k₁ + I[k₁] - I[k₂]
+            den *= k₂ - k₁
         end
         q, r = divrem(num, den)
         @assert r == 0
+        N > 4 && q > typemax(Int) && throw_dimoverflow(s)
         d = Int(q)
     end
     return d
 end
+function bigweyldim(s::SUNIrrep{N}) where {N}
+    I = weight(s)
+    num = prod(big(k₂ - k₁ + I[k₁] - I[k₂]) for k₂ in 2:N for k₁ in 1:(k₂ - 1))
+    den = prod(big(k₂ - k₁) for k₂ in 2:N for k₁ in 1:(k₂ - 1))
+    d = div(num, den)
+    d <= typemax(Int) || throw_dimoverflow(s)
+    return Int(d)
+end
+@noinline throw_dimoverflow(s) = throw(OverflowError(lazy"dimension of $s does not fit in an Int"))
 
 TensorKitSectors.sectorscalartype(::Type{<:SUNIrrep}) = Float64
 TensorKitSectors.fusiontensor(s1::I, s2::I, s3::I) where {I <: SUNIrrep} =
