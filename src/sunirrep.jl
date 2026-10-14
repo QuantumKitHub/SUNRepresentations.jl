@@ -194,9 +194,7 @@ end
 
 Returns the congruency class of the SU(N) irrep `I`, which expresses to what class of the ℤₙ-grading the irrep belongs.
 """
-function congruency(I::SUNIrrep{N}) where {N}
-    return sum(((k, aₖ),) -> aₖ * k, enumerate(dynkin_label(I))) % N
-end
+congruency(I::SUNIrrep{N}) where {N} = nboxes(I) % N
 
 """
     index(I::SUNIrrep)

@@ -176,23 +176,88 @@ end
 
 annihilation(s::SUNIrrep) = [SparseArray(op') for op in creation(s)]
 
-# direct product: return dictionary with new irreps as keys, outer multiplicities as value
-function directproduct(s1::I, s2::I) where {N, I <: SUNIrrep{N}}
-    dim(s1) > dim(s2) && return directproduct(s2, s1)
-    result = Dict{I, Int}()
-    for m in basis(s1)
-        t = weight(s2)
-        bad_pattern = false
-        for k in 1:N, l in N:-1:k
-            bad_pattern && break
-            bkl = m[k, l]
-            checkbounds(m, k, l - 1) && (bkl -= m[k, l - 1])
-            t = Base.setindex(t, t[l] + bkl, l)
-            l > 1 && (bad_pattern = t[l - 1] < t[l])
+# Littlewood-Richardson rule in GT form: enumerate the GT patterns m of λ whose tableau, added to μ
+# in reverse reading order, keeps t = μ + content a partition. Tableau row k holds m[k, N:-1:k],
+# with m[k, l] - m[k, l - 1] boxes of entry l; all constraints are imposed as bounds on m[k, l - 1].
+# Returns the number of patterns ending in `target` (any if `nothing`), and records the final `t`
+# of each in `out`. `cur` and `prev` hold rows k and k - 1 of m.
+function littlewoodrichardson!(out, s1::I, s2::I, target = nothing) where {N, I <: SUNIrrep{N}}
+    λ, μ = weight(s1), weight(s2)
+    cur = Base.setindex(ntuple(Returns(0), Val(N)), λ[1], N)
+    return littlewoodrichardson!(out, λ, target, μ, cur, cur, 1, N)
+end
+function littlewoodrichardson!(
+        out, λ::NTuple{N, Int}, target, t::NTuple{N, Int},
+        prev::NTuple{N, Int}, cur::NTuple{N, Int}, k::Int, l::Int
+    ) where {N}
+    if l == k # boxes of entry k end row k
+        t = Base.setindex(t, t[k] + cur[k], k)
+        if k == N - 1 # row N is empty, since λ[N] == 0
+            record!(out, t)
+            return 1
         end
-        if !(bad_pattern)
-            s = I(t)
-            result[s] = get(result, s, 0) + 1
+        return littlewoodrichardson!(out, λ, target, t, cur, Base.setindex(cur, λ[k + 1], N), k + 1, N)
+    end
+
+    # choose v = m[k, l - 1], which adds cur[l] - v boxes of entry l
+    lo = max(λ[k + N - l + 1], t[l] + cur[l] - t[l - 1]) # GT bound, lattice condition
+    hi = k > 1 ? min(cur[l], prev[l - 2]) : cur[l] # GT interleaving
+    isnothing(target) || (lo = max(lo, cur[l] - (target[l] - t[l])))
+    if l - 1 == k # v = m[k, k] is the number of boxes of entry k
+        k > 1 && (hi = min(hi, t[k - 1] - t[k]))
+        if !isnothing(target) # no boxes of entry k after row k
+            lo = max(lo, target[k] - t[k])
+            hi = min(hi, target[k] - t[k])
+        end
+    end
+
+    n = 0
+    for v in lo:hi
+        t′ = Base.setindex(t, t[l] + cur[l] - v, l)
+        n += littlewoodrichardson!(out, λ, target, t′, prev, Base.setindex(cur, v, l - 1), k, l - 1)
+    end
+    return n
+end
+
+# record the weight `t` of a term of the direct product: not at all, as an irrep, or as a count
+record!(::Nothing, t) = nothing
+record!(out::AbstractVector{I}, t) where {I} = (push!(out, I(t)); nothing)
+function record!(out::AbstractDict{I, Int}, t) where {I}
+    s = I(t)
+    out[s] = get(out, s, 0) + 1
+    return nothing
+end
+
+# direct product: return dictionary with new irreps as keys, outer multiplicities as value
+function directproduct(s1::I, s2::I) where {I <: SUNIrrep}
+    nboxes(s1) > nboxes(s2) && return directproduct(s2, s1)
+    counts = Dict{I, Int}()
+    littlewoodrichardson!(counts, s1, s2)
+    return counts
+end
+
+# direct product as a sorted vector of irreps and outer multiplicities
+function sorteddirectproduct(s1::I, s2::I) where {N, I <: SUNIrrep{N}}
+    nboxes(s1) > nboxes(s2) && return sorteddirectproduct(s2, s1)
+    irreps = sizehint!(I[], min(dim(s1), 512)) # the number of terms is at most dim(s1)
+    littlewoodrichardson!(irreps, s1, s2)
+
+    # counting in a dictionary only pays off for large products with many multiplicities
+    if length(irreps) > 512
+        counts = Dict{I, Int}()
+        for s in irreps
+            counts[s] = get(counts, s, 0) + 1
+        end
+        return sort!(collect(counts); by = first)
+    end
+
+    sort!(irreps)
+    result = Pair{I, Int}[]
+    for s in irreps
+        if !isempty(result) && first(last(result)) == s
+            result[end] = s => last(result[end]) + 1
+        else
+            push!(result, s => 1)
         end
     end
     return result
