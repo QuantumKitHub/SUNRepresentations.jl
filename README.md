@@ -15,12 +15,12 @@ julia> using Pkg; Pkg.add("SUNRepresentations")
 
 ```julia
 using TensorKit, SUNRepresentations
-I = SUNIrrep(2, 1, 0)
+I = SUNIrrep{3}(2, 1, 0)
 println("$I ⊗ $I = $(collect(I ⊗ I))")
 ```
 
 ```
-Irrep[SU{3}]((2, 1, 0)) ⊗ Irrep[SU{3}]((2, 1, 0)) = SUNIrrep{3}[(0, 0, 0), (4, 2, 0), (3, 3, 0), (2, 1, 0), (3, 0, 0)]
+Irrep[SU₃]((2, 1, 0)) ⊗ Irrep[SU₃]((2, 1, 0)) = SU3Irrep[(0, 0, 0), (2, 1, 0), (4, 2, 0), (3, 3, 0), (3, 0, 0)]
 ```
 
 ## Caching Clebsch-Gordan coefficients
