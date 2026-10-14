@@ -4,7 +4,7 @@ println("------------------------------------")
 
 using SUNRepresentations: cartanmatrix, inverse_cartanmatrix, dimname, dynkin_label
 using Latexify: latexify, @L_str
-using SUNRepresentations.TensorKitSectors: dual
+using SUNRepresentations.TensorKitSectors: ⊗, Nsymbol, dual
 
 @timedtestset "Basic tests for SUNIrrep{$N}:" for N in 2:5
     I1 = SUNIrrep{N}(sort!(rand(1:9, N - 1); rev = true)..., 0)
@@ -37,6 +37,42 @@ using SUNRepresentations.TensorKitSectors: dual
 
     @test inv(cartanmatrix(I1)) ≈ inverse_cartanmatrix(I1)
     @test SUNIrrep{N}("1") === one(SUNIrrep{N})
+end
+
+@timedtestset "Direct product of SUNIrrep{$N}:" for N in 2:6
+    irreps = collect(Iterators.take(values(SUNIrrep{N}), 20))
+    @constinferred collect(irreps[end] ⊗ irreps[end - 1])
+    @constinferred Nsymbol(irreps[end], irreps[end - 1], irreps[end - 2])
+    for a in irreps, b in irreps
+        # deterministic order, independent of `hash` (#54)
+        ab = collect(a ⊗ b)
+        @test issorted(ab) && allunique(ab)
+        dp = directproduct(a, b)
+        @test issetequal(keys(dp), ab)
+        @test ab == collect(b ⊗ a)
+        @test sum(c -> dp[c] * dim(c), ab) == dim(a) * dim(b)
+        for c in irreps
+            n = Nsymbol(a, b, c)
+            @test n == get(dp, c, 0)
+            @test n == Nsymbol(b, a, c) == Nsymbol(a, dual(c), dual(b)) ==
+                Nsymbol(dual(a), dual(b), dual(c))
+        end
+    end
+end
+
+@timedtestset "Large direct products" begin
+    for (a, b) in (
+            (SU3Irrep(9, 9), SU3Irrep(8, 10)),
+            (SU4Irrep(3, 2, 3), SU4Irrep(2, 3, 2)),
+            (SU5Irrep(2, 1, 1, 2), SU5Irrep(1, 2, 2, 1)),
+        )
+        ab = collect(a ⊗ b)
+        @test issorted(ab) && allunique(ab)
+        dp = directproduct(a, b)
+        @test issetequal(keys(dp), ab)
+        @test sum(c -> dp[c] * dim(c), ab) == dim(a) * dim(b)
+        @test all(c -> Nsymbol(a, b, c) == dp[c] == Nsymbol(dual(a), dual(b), dual(c)), ab)
+    end
 end
 
 @timedtestset "Illegal constructors" begin
