@@ -6,6 +6,7 @@ using RationalRoots
 using LinearAlgebra
 using TensorKitSectors
 using LRUCache
+using MemoizationKit: @cached
 using Scratch, Preferences
 using JLD2, Pidfile
 

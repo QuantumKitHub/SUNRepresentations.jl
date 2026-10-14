@@ -236,8 +236,9 @@ function directproduct(s1::I, s2::I) where {I <: SUNIrrep}
     return counts
 end
 
-# direct product as a sorted vector of irreps and outer multiplicities
-function sorteddirectproduct(s1::I, s2::I) where {N, I <: SUNIrrep{N}}
+# direct product as a sorted vector of irreps and outer multiplicities; the result is cached
+# and shared, so it must not be mutated
+@cached function sorteddirectproduct(s1::I, s2::I)::Vector{Pair{I, Int}} where {N, I <: SUNIrrep{N}}
     nboxes(s1) > nboxes(s2) && return sorteddirectproduct(s2, s1)
     irreps = sizehint!(I[], min(dim(s1), 512)) # the number of terms is at most dim(s1)
     littlewoodrichardson!(irreps, s1, s2)
