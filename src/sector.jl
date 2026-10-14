@@ -31,11 +31,70 @@ TensorKitSectors.unit(::Type{I}) where {I <: SUNIrrep} = I(ntuple(Returns(zero(U
 TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
 TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic()
 
+# `⊗` and `Nsymbol` are called very often, e.g. at every vertex of every fusion tree that is
+# enumerated, and from many tasks at once, so they read the direct product from a cache that
+# is read without locking: lookups go to an immutable snapshot, and an insertion (rare, there
+# are few distinct pairs) publishes a new snapshot under a lock.
+mutable struct SnapshotCache{K, V}
+    @atomic dict::Dict{K, V}
+    const lock::ReentrantLock
+    const maxsize::Int
+end
+SnapshotCache{K, V}(; maxsize::Int = 10^5) where {K, V} =
+    SnapshotCache{K, V}(Dict{K, V}(), ReentrantLock(), maxsize)
+
+function cached!(f, c::SnapshotCache{K, V}, key) where {K, V}
+    d = @atomic :acquire c.dict
+    v = get(d, key, nothing)
+    v === nothing || return v::V
+    val = convert(V, f())
+    @lock c.lock begin
+        d = @atomic :acquire c.dict
+        v = get(d, key, nothing)
+        v === nothing || return v::V
+        d′ = length(d) < c.maxsize ? copy(d) : Dict{K, V}()
+        d′[key] = val
+        @atomic :release c.dict = d′
+    end
+    return val
+end
+function Base.empty!(c::SnapshotCache{K, V}) where {K, V}
+    @lock c.lock (@atomic :release c.dict = Dict{K, V}())
+    return c
+end
+Base.length(c::SnapshotCache) = length(@atomic :acquire c.dict)
+
+# An LRU cache split into shards by key hash, each with its own lock, such that concurrent
+# lookups from many tasks rarely wait on each other.
+struct ShardedLRU{K, V}
+    shards::Vector{LRU{K, V}}
+end
+function ShardedLRU{K, V}(; maxsize::Int, nshards::Int = 64) where {K, V}
+    return ShardedLRU{K, V}([LRU{K, V}(; maxsize = cld(maxsize, nshards)) for _ in 1:nshards])
+end
+@inline _shard(c::ShardedLRU, key) = @inbounds c.shards[(hash(key) % length(c.shards)) + 1]
+cached!(f, c::ShardedLRU, key) = get!(f, _shard(c, key), key)
+Base.empty!(c::ShardedLRU) = (foreach(empty!, c.shards); c)
+Base.length(c::ShardedLRU) = sum(length, c.shards)
+
+# one cache per rank (`SUNIrrep{N}`)
+const DIRECTPRODUCT_CACHE = SnapshotCache{Int, Any}(; maxsize = typemax(Int))
+
+# the returned dictionary is shared with the cache and must not be mutated
+function _directproduct(s1::I, s2::I) where {I <: SUNIrrep}
+    K = Tuple{I, I}
+    V = Dict{I, Int}
+    cache = cached!(() -> SnapshotCache{K, V}(), DIRECTPRODUCT_CACHE, rank(I))::SnapshotCache{K, V}
+    return cached!(cache, (s1, s2)) do
+        return directproduct(s1, s2)
+    end
+end
+
 function TensorKitSectors.:⊗(s1::I, s2::I) where {I <: SUNIrrep}
-    return SectorSet{I}(keys(directproduct(s1, s2)))
+    return SectorSet{I}(keys(_directproduct(s1, s2)))
 end
 function TensorKitSectors.Nsymbol(s1::I, s2::I, s3::I) where {I <: SUNIrrep}
-    return get(directproduct(s1, s2), s3, 0)
+    return get(_directproduct(s1, s2), s3, 0)
 end
 function TensorKitSectors.dim(s::SUNIrrep{N}) where {N}
     I = weight(s)
@@ -51,7 +110,8 @@ TensorKitSectors.sectorscalartype(::Type{<:SUNIrrep}) = Float64
 TensorKitSectors.fusiontensor(s1::I, s2::I, s3::I) where {I <: SUNIrrep} =
     CGC(s1, s2, s3)
 
-const FCACHE = LRU{Int, Any}(; maxsize = 10)
+# one cache per rank (`SUNIrrep{N}`)
+const FCACHE = SnapshotCache{Int, Any}(; maxsize = typemax(Int))
 
 TensorKitSectors.fusionscalartype(::Type{<:SUNIrrep}) = Float64
 
@@ -59,10 +119,8 @@ function TensorKitSectors.Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <
     key = (a, b, c, d, e, f)
     K = typeof(key)
     V = Array{fusionscalartype(I), 4}
-    cache::LRU{K, V} = get!(FCACHE, rank(I)) do
-        return LRU{K, V}(; maxsize = 10^5)
-    end
-    return get!(cache, key) do
+    cache = cached!(() -> ShardedLRU{K, V}(; maxsize = 10^5), FCACHE, rank(I))::ShardedLRU{K, V}
+    return cached!(cache, key) do
         return _Fsymbol(a, b, c, d, e, f)
     end
 end
@@ -86,16 +144,14 @@ function _Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep}
     return Array(F)
 end
 
-const RCACHE = LRU{Int, Any}(; maxsize = 10)
+const RCACHE = SnapshotCache{Int, Any}(; maxsize = typemax(Int))
 TensorKitSectors.braidingscalartype(::Type{<:SUNIrrep}) = Float64
 function TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep}
     key = (a, b, c)
     K = typeof(key)
     V = Array{braidingscalartype(I), 2}
-    cache::LRU{K, V} = get!(RCACHE, rank(I)) do
-        return LRU{K, V}(; maxsize = 10^5)
-    end
-    return get!(cache, key) do
+    cache = cached!(() -> ShardedLRU{K, V}(; maxsize = 10^5), RCACHE, rank(I))::ShardedLRU{K, V}
+    return cached!(cache, key) do
         return _Rsymbol(a, b, c)
     end
 end
