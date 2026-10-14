@@ -232,8 +232,9 @@ function directproduct(s1::I, s2::I) where {I <: SUNIrrep}
     return counts
 end
 
-# the distinct irreps in the direct product, in sorted order
-function productirreps(s1::I, s2::I) where {I <: SUNIrrep}
+# the distinct irreps in the direct product, in sorted order; the result is cached and shared,
+# so it must not be mutated
+@cached function productirreps(s1::I, s2::I)::Vector{I} where {I <: SUNIrrep}
     # the number of terms is at most the dimension of either irrep
     irreps = sizehint!(I[], min(dim(nboxes(s1) < nboxes(s2) ? s1 : s2), 512))
     littlewoodrichardson(t -> push!(irreps, I(t)), s1, s2)

@@ -5,9 +5,10 @@ using SparseArrayKit
 using RationalRoots
 using LinearAlgebra
 using TensorKitSectors
-using LRUCache
-using Scratch, Preferences
-using JLD2, Pidfile
+using MemoizationKit: MemoizationKit, @cached, DiskCache
+import SQLite # enables the disk caches of MemoizationKit
+using Preferences
+using Serialization
 
 export SUNIrrep, basis, Zweight, creation, annihilation, highest_weight, dim
 export weight, dynkin_label, congruency, casimir, rank
@@ -20,11 +21,5 @@ include("caching.jl")
 include("clebschgordan.jl")
 include("sector.jl")
 include("naming.jl")
-
-function __init__()
-    _init_use_disk_cache!()
-    _init_cgc_cache_dir!()
-    return nothing
-end
 
 end
