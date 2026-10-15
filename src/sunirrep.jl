@@ -48,7 +48,7 @@ _weight_to_dynkin(w::NTuple{N, Integer}) where {N} =
     ntuple(i -> Int(w[i]) - Int(w[i + 1]), Val(N - 1))
 
 _dynkin_to_weight(a::NTuple{M, Integer}) where {M} =
-    M == 0 ? (0,) : ((_dynkin_to_weight(Base.front(a)) .+ last(a))..., 0)
+    (reverse(accumulate(+, reverse(map(Int, a))))..., 0)
 
 function SUNIrrep{N, M}(t::NTuple{O, Integer}) where {N, M, O}
     M == N - 1 || _throw_typeerror(N, M)
@@ -138,6 +138,9 @@ This is derived from the stored Dynkin labels via suffix sums.
 See also: [`dynkin_label`](@ref).
 """
 weight(s::SUNIrrep) = _dynkin_to_weight(dynkin_label(s))
+
+# number of boxes in the Young diagram of the (normalised) highest weight
+nboxes(s::SUNIrrep) = sum(((k, aₖ),) -> aₖ * k, enumerate(dynkin_label(s)))
 
 """
     rank(s::SUNIrrep) -> Int
