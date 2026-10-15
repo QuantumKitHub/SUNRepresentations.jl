@@ -178,3 +178,13 @@ end
     w = weight(s)
     @test dim(s) == prod(big(k2 - k1 + w[k1] - w[k2]) // (k2 - k1) for k2 in 2:22 for k1 in 1:(k2 - 1))
 end
+
+@timedtestset "Dimension of symmetric powers of SUNIrrep{$N} (BigInt Weyl formula)" for N in 10:12
+    s = SUNIrrep{N}(255, ntuple(Returns(0), N - 2)...)
+    d = binomial(big(254 + N), N - 1)
+    if d <= typemax(Int)
+        @test dim(s) == d
+    else
+        @test_throws OverflowError dim(s)
+    end
+end
