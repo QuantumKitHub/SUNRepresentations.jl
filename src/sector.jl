@@ -32,10 +32,22 @@ TensorKitSectors.FusionStyle(::Type{<:SUNIrrep}) = GenericFusion()
 TensorKitSectors.BraidingStyle(::Type{<:SUNIrrep}) = Bosonic()
 
 function TensorKitSectors.:⊗(s1::I, s2::I) where {I <: SUNIrrep}
-    return SectorSet{I}(keys(directproduct(s1, s2)))
+    return SectorSet{I}(productirreps(s1, s2))
 end
-function TensorKitSectors.Nsymbol(s1::I, s2::I, s3::I) where {I <: SUNIrrep}
-    return get(directproduct(s1, s2), s3, 0)
+# Outer multiplicity of ν in λ ⊗ μ, as the number of Littlewood-Richardson tableaux that fill the
+# skew diagram ν / μ with content λ.
+function TensorKitSectors.Nsymbol(λ::I, μ::I, ν::I) where {N, I <: SUNIrrep{N}}
+    # necessary conditions:
+    # - the tableau adds |λ| boxes to μ, so |λ| + |μ| = |ν| + N d, where d ≥ 0 is the number of full
+    #   columns that the normalisation of ν removed (equivalently, the congruency classes add up)
+    d, r = divrem(nboxes(λ) + nboxes(μ) - nboxes(ν), N)
+    (r == 0 && d >= 0) || return 0
+
+    # - ν + d, the diagram with these columns restored, contains both λ and μ
+    target = weight(ν) .+ d
+    (all(map(<=, weight(λ), target)) && all(map(<=, weight(μ), target))) || return 0
+
+    return littlewoodrichardson(Returns(nothing), λ, μ, target)
 end
 # Exact bounds used below, with n the number of boxes:
 # - Dynkin labels are at most 255, so dim ≤ 256^(N(N - 1)/2) = 2^(4N(N - 1)) (all labels 255).
