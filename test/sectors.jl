@@ -44,6 +44,7 @@ for I in sectorlist
         for s in smallset(I)
             @test (@constinferred values(I)[TensorKit.findindex(values(I), s)]) == s
         end
+        @test all(i -> TensorKit.findindex(values(I), values(I)[i]) == i, 1:1000)
     end
     @timedtestset "Sector $I: fusion tensor and F-move and R-move" begin
         for a in smallset(I), b in smallset(I)
