@@ -13,31 +13,15 @@ Base.iterate(iter::SectorValues{<:SUNIrrep}, i::Int = 1) = iter[i], i + 1
 
 # linear order of sectors: use manhattan ordering of dynkin labels (0-based)
 function Base.getindex(::SectorValues{<:SUNIrrep{N}}, i::Int) where {N}
-    sz = ntuple(Returns(typemax(Int)), N - 1)
+    sz = ntuple(Returns(TensorKitSectors.Unbounded()), N - 1)
     I = TensorKitSectors.manhattan_to_multidimensional_index(i, sz)
     dk_label = I .- 1 # dynkin labels are 0-based
     return SUNIrrep{N, N - 1}(map(UInt8, dk_label))  # direct inner constructor, no validation needed
 end
-# the labels are unbounded, so that the points to count have a closed form (stars and bars)
 function TensorKitSectors.findindex(::SectorValues{I}, s::I) where {I <: SUNIrrep}
-    a = map(Int, dynkin_label(s))
-    d = sum(a)
-    return 1 + _numlabelsbelow(d, Val(length(a))) + _localoffset(d, a)
-end
-# number of labels with `n` entries and a sum smaller than `d`: binomial(d - 1 + n, n)
-function _numlabelsbelow(d::Int, ::Val{n}) where {n}
-    d ≤ 0 && return 0
-    r = 1
-    for k in 1:n
-        r = (r * (d - 1 + k)) ÷ k
-    end
-    return r
-end
-# number of labels with sum `d` and a smaller first entry than `a`, then recursively for the rest
-_localoffset(d::Int, ::Tuple{Int}) = 0
-function _localoffset(d::Int, a::NTuple{n, Int}) where {n}
-    smaller = _numlabelsbelow(d + 1, Val(n - 1)) - _numlabelsbelow(d - a[1] + 1, Val(n - 1))
-    return smaller + _localoffset(d - a[1], Base.tail(a))
+    a = dynkin_label(s) .+ 1
+    sz = ntuple(Returns(TensorKitSectors.Unbounded()), rank(I) - 1)
+    return TensorKitSectors.to_manhattan_index(a, sz)
 end
 
 TensorKitSectors.dual(s::SUNIrrep) = typeof(s)(reverse(getfield(s, :a)))
