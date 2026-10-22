@@ -12,16 +12,15 @@ Base.IteratorSize(::Type{SectorValues{T}}) where {T <: SUNIrrep} = Base.IsInfini
 Base.iterate(iter::SectorValues{<:SUNIrrep}, i::Int = 1) = iter[i], i + 1
 
 # linear order of sectors: use manhattan ordering of dynkin labels (0-based)
-# TODO: all sizes are infinite so manhattan indexing can be sped up if need be
 function Base.getindex(::SectorValues{<:SUNIrrep{N}}, i::Int) where {N}
-    sz = ntuple(Returns(typemax(Int)), N - 1)
+    sz = ntuple(Returns(TensorKitSectors.Unbounded()), N - 1)
     I = TensorKitSectors.manhattan_to_multidimensional_index(i, sz)
     dk_label = I .- 1 # dynkin labels are 0-based
     return SUNIrrep{N, N - 1}(map(UInt8, dk_label))  # direct inner constructor, no validation needed
 end
 function TensorKitSectors.findindex(::SectorValues{I}, s::I) where {I <: SUNIrrep}
     a = dynkin_label(s) .+ 1
-    sz = ntuple(Returns(typemax(Int)), rank(I) - 1)
+    sz = ntuple(Returns(TensorKitSectors.Unbounded()), rank(I) - 1)
     return TensorKitSectors.to_manhattan_index(a, sz)
 end
 
