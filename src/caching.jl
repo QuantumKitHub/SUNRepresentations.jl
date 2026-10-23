@@ -108,8 +108,13 @@ function _ensure_cgc_cache_dir!()
     return mkpath(cgc_cache_dir())
 end
 
+# part of the cache file names, to be bumped whenever the computed CGCs change, so that
+# outdated (e.g. less accurate) coefficients are not read back from disk
+const CGC_CACHE_VERSION = "v2"
+
 function cgc_cachepath(s1::SUNIrrep{N}, s2::SUNIrrep{N}, T = Float64) where {N}
-    return joinpath(cgc_cache_dir(), string(N), string(T), _key(s1), _key(s2))
+    fn = _key(s2) * "_" * CGC_CACHE_VERSION
+    return joinpath(cgc_cache_dir(), string(N), string(T), _key(s1), fn)
 end
 
 function tryread(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T, N}

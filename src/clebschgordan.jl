@@ -137,6 +137,8 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     Jm_list1 = annihilation(s1)
     Jm_list2 = annihilation(s2)
     Jm_list3 = annihilation(s3)
+    Jp_cols1 = map(J⁻ -> raising_columns(T, J⁻), Jm_list1)
+    Jp_cols2 = map(J⁻ -> raising_columns(T, J⁻), Jm_list2)
 
     map1 = weightmap(basis(s1))
     map2 = weightmap(basis(s2))
@@ -219,8 +221,8 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
                 rhs[row, col] += val
             end
 
-            # solve equations
-            sols = ldiv!(qr!(eqs), rhs)
+            # solve equations, together with the raising equations for stability
+            sols = lowering_solve(eqs, rhs, raising_gram(T, Jp_cols1, Jp_cols2, mask))
 
             # fill in CGC
             # loop over sols in column major order, CGC is hashmap anyways
@@ -232,6 +234,54 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
         end
     end
     return CGC
+end
+
+# Solving the lowering equations `eqs * sols = rhs` on their own is unstable: rounding errors
+# along the other irreps in s1 ⊗ s2 grow exponentially from one weight to the next. Hence the
+# raising equations J⁺ |m₁, m₂⟩ = J⁺₃ |m₃⟩ (with J⁺ = J⁻ᵀ) are imposed as well, which give the
+# same solution in exact arithmetic. The normal equations of both in the least-squares sense
+# are `A * sols + sols * B = 2 * eqsᵀ * rhs`, with `A = eqsᵀ * eqs` positive definite and `B` the
+# Gram matrix of the raising operators on the pairs |m₁, m₂⟩, see `raising_gram`.
+function lowering_solve(eqs, rhs, B)
+    μ, U = eigen!(Symmetric(eqs' * eqs))
+    sols = U' * (eqs' * rhs)
+    for k in eachindex(μ)
+        x = view(sols, k, :)
+        x .= cholesky!(Symmetric(B + μ[k] * I)) \ (2 .* x)
+    end
+    return U * sols
+end
+
+# nonzero entries `m′ => J⁺[m′, m]` in every column `m` of the raising operator J⁺ = J⁻ᵀ
+function raising_columns(::Type{T}, J⁻) where {T}
+    cols = [Pair{Int, T}[] for _ in axes(J⁻, 1)]
+    for (I, v) in nonzero_pairs(J⁻)
+        push!(cols[I[1]], I[2] => convert(T, v))
+    end
+    return cols
+end
+
+# Gram matrix `B = ∑ₗ J⁺ₗᵀ J⁺ₗ` of the raising operators J⁺ₗ = J⁺₁ ⊗ 𝕀 + 𝕀 ⊗ J⁺₂ restricted to
+# the pairs |m₁, m₂⟩ in `mask`, which all have the same weight
+function raising_gram(::Type{T}, Jp_cols1, Jp_cols2, mask) where {T}
+    # nonzero entries in the rows of all J⁺ₗ, which have distinct images as these differ in weight
+    rows = Dict{CartesianIndex{2}, Vector{Pair{Int, T}}}()
+    for (p, I) in enumerate(mask)
+        m1, m2 = Tuple(I)
+        for (cols1, cols2) in zip(Jp_cols1, Jp_cols2)
+            for (m1′, v) in cols1[m1]
+                push!(get!(Vector{Pair{Int, T}}, rows, CartesianIndex(m1′, m2)), p => v)
+            end
+            for (m2′, v) in cols2[m2]
+                push!(get!(Vector{Pair{Int, T}}, rows, CartesianIndex(m1, m2′)), p => v)
+            end
+        end
+    end
+    B = zeros(T, length(mask), length(mask))
+    for row in values(rows), (p, v) in row, (p′, v′) in row
+        B[p, p′] += v * v′
+    end
+    return B
 end
 
 # Auxiliary tools
