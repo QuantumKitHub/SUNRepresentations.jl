@@ -20,90 +20,43 @@ println("$I ⊗ $I = $(collect(I ⊗ I))")
 ```
 
 ```
-Irrep[SU₃]((2, 1, 0)) ⊗ Irrep[SU₃]((2, 1, 0)) = SU3Irrep[(0, 0, 0), (2, 1, 0), (4, 2, 0), (3, 3, 0), (3, 0, 0)]
+Irrep[SU₃]((2, 1, 0)) ⊗ Irrep[SU₃]((2, 1, 0)) = SU3Irrep[(0, 0, 0), (2, 1, 0), (3, 3, 0), (3, 0, 0), (4, 2, 0)]
 ```
 
-## Caching Clebsch-Gordan coefficients
+## Caching
 
-As computing the Clebsch-Gordan coefficients is a relatively expensive operation, this packages automatically caches the results of the computations.
-To obtain information about the current status of the cache, one can call `SUNRepresentations.cache_info()`.
-
-Often, it may be useful to precompute a large set of coefficients (in parallel).
-These can then be stored on disk and loaded when needed, or even transferred to other machines.
-This can be done using the `SUNRepresentations.precompute_disk_cache(N, a_max)` function, which will compute all Clebsch-Gordan coefficients for `s1 ⊗ s2 -> s3`, where `s1` and `s2` will have Dynkin labels smaller than `a_max`, and `s3` runs over all outputs of the fusion product.
+As computing Clebsch-Gordan coefficients is a relatively expensive operation, this package caches them, in memory and on disk, using [MemoizationKit.jl](https://github.com/QuantumKitHub/MemoizationKit.jl).
+The F- and R-symbols and the direct products of irreps are cached in memory as well.
+To obtain information about the current status of the caches, call `SUNRepresentations.cache_info()`:
 
 ```julia-repl
 julia> SUNRepresentations.precompute_disk_cache(3)
-CGC disk cache info:
-====================
-* SU(3) - Float64 - 32 entries - 134.462 KiB
-```
-
-The values are stored at `SUNRepresentations.cgc_cache_dir()`, which by default is a package-wide
-scratchspace. Each file `CGC/N/T/s1/s2.jld2` contains coefficients with datatype `T` for
-the fusion of the `SU(N)` irreps `s1 ⊗ s2 → s3`, where `s3` runs over all possible fusion
-channels. The folder structure is as follows:
-
-```quote
-CGC/
-├── 3/
-│   ├── Float64/
-│   │   ├── (0, 0, 0)/
-│   │   │   ├── (0, 0, 0).jld2
-│   │   │   ├── (1, 0, 0).jld2
-│   │   │   └── ...
-│   │   ├── (1, 0, 0)/
-│   │   │   └── ...
-│   │   └── ...
-│   └── Float32/
-│      └── ...
-├── 4/
-└── ...
-```
-
-### Changing the disk cache location
-
-The location of the disk cache can be changed with `SUNRepresentations.cgc_cache_dir`, for
-example to keep it off a slow or quota-limited home directory:
-
-```julia-repl
-julia> SUNRepresentations.cgc_cache_dir("/scratch/cgc")
-
-julia> SUNRepresentations.cgc_cache_dir()
-"/scratch/cgc"
-```
-
-Passing `nothing` restores the default scratchspace, and `persist=true` stores the location
-in the active project's `LocalPreferences.toml`. Note that switching directories neither
-moves nor removes coefficients that were already cached elsewhere.
-
-### Disabling the disk cache
-
-Reading from and writing to the disk cache is synchronized between processes using file
-locks. On shared filesystems such lock files are often unreliable or slow, which can stall
-computations. The disk cache can therefore be disabled entirely, in which case coefficients
-are only cached in memory for the duration of the session and the scratchspace is never
-created:
-
-```julia-repl
-julia> SUNRepresentations.use_disk_cache(false)
-true
 
 julia> SUNRepresentations.cache_info()
-CGC RAM cache info:
-CacheInfo(; hits=0, misses=0, currentsize=0, maxsize=100000)
-
-CGC disk cache info (disabled):
-===============================
-* SU(3) - Float64 - 32 entries - 134.462 KiB
+SUN_CGC: MemoizationKit.ClockCache{Any, Any}(32/100000 entries, 0 hits, 32 misses)
+SUN_Fsymbol: not used yet
+SUN_Rsymbol: not used yet
+productirreps: MemoizationKit.ClockCache{Any, Any}(16/10000 entries, 0 hits, 16 misses)
+SUN_CGC on disk: 32 entries, 309.812 KiB, ~/.julia/scratchspaces/1a50b95c-7aac-476d-a9ce-2bfc675fc617/MemoizationKit/SUNRepresentations.SUN_CGC-v1-hostname.sqlite
 ```
 
-Disabling the cache does not touch anything that is already stored, so the contents are
-still reported; they are simply neither read nor written for as long as the cache is
-disabled.
+Often, it may be useful to precompute a large set of coefficients (in parallel), which are then stored on disk and loaded when needed.
+This can be done, as above, using the `SUNRepresentations.precompute_disk_cache(N, a_max)` function, which will compute all Clebsch-Gordan coefficients for `s1 ⊗ s2 -> s3`, where `s1` and `s2` will have Dynkin labels up to `a_max`, and `s3` runs over all outputs of the fusion product.
 
-Passing `persist=true` additionally stores the setting in the active project's
-`LocalPreferences.toml`. Note that writing preferences is not safe to do concurrently.
+The disk cache is an SQLite database per machine, stored in a scratch space of this package by default.
+Its location, and whether it is used at all, are set with MemoizationKit's preferences, for example to keep it off a slow or quota-limited home directory:
+
+```julia-repl
+julia> using MemoizationKit
+
+julia> set_cache_preferences!(SUNRepresentations; disk_path = "/scratch/cgc")
+
+julia> set_cache_preferences!(SUNRepresentations; disk = false) # only cache in memory
+```
+
+These are stored in the active project's `LocalPreferences.toml`, and take effect from the next session (or before the first coefficient is computed).
+`MemoizationKit.empty_disk_caches!(SUNRepresentations.SUN_CGC)` removes the coefficients stored on this machine, and `MemoizationKit.empty_caches!(SUNRepresentations)` those in memory.
+See the [MemoizationKit documentation](https://quantumkithub.github.io/MemoizationKit.jl/dev/) for the other settings, such as the sizes of the caches in memory.
 
 ## Conventions
 

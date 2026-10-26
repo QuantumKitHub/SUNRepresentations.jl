@@ -129,22 +129,11 @@ TensorKitSectors.sectorscalartype(::Type{<:SUNIrrep}) = Float64
 TensorKitSectors.fusiontensor(s1::I, s2::I, s3::I) where {I <: SUNIrrep} =
     CGC(s1, s2, s3)
 
-const FCACHE = LRU{Int, Any}(; maxsize = 10)
-
 TensorKitSectors.fusionscalartype(::Type{<:SUNIrrep}) = Float64
 
-function TensorKitSectors.Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep}
-    key = (a, b, c, d, e, f)
-    K = typeof(key)
-    V = Array{fusionscalartype(I), 4}
-    cache::LRU{K, V} = get!(FCACHE, rank(I)) do
-        return LRU{K, V}(; maxsize = 10^5)
-    end
-    return get!(cache, key) do
-        return _Fsymbol(a, b, c, d, e, f)
-    end
-end
-function _Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep}
+TensorKitSectors.Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep} =
+    SUN_Fsymbol(a, b, c, d, e, f)
+@cached function SUN_Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I)::Array{Float64, 4} where {I <: SUNIrrep}
     N1 = Nsymbol(a, b, e)
     N2 = Nsymbol(e, c, d)
     N3 = Nsymbol(b, c, f)
@@ -163,21 +152,11 @@ function _Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrrep}
         A[1, 2, 3, -1] * B[3, 4, -2]
     return Array(F)
 end
+MemoizationKit.default_cache_settings(::typeof(SUN_Fsymbol)) = (; maxsize = 10^5)
 
-const RCACHE = LRU{Int, Any}(; maxsize = 10)
 TensorKitSectors.braidingscalartype(::Type{<:SUNIrrep}) = Float64
-function TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep}
-    key = (a, b, c)
-    K = typeof(key)
-    V = Array{braidingscalartype(I), 2}
-    cache::LRU{K, V} = get!(RCACHE, rank(I)) do
-        return LRU{K, V}(; maxsize = 10^5)
-    end
-    return get!(cache, key) do
-        return _Rsymbol(a, b, c)
-    end
-end
-function _Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep}
+TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep} = SUN_Rsymbol(a, b, c)
+@cached function SUN_Rsymbol(a::I, b::I, c::I)::Array{Float64, 2} where {I <: SUNIrrep}
     N1 = Nsymbol(a, b, c)
     N2 = Nsymbol(b, a, c)
 
@@ -189,3 +168,4 @@ function _Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep}
     @tensor R[-1; -2] := conj(B[1, 2, -2]) * A[2, 1, -1]
     return Array(R)
 end
+MemoizationKit.default_cache_settings(::typeof(SUN_Rsymbol)) = (; maxsize = 10^5)

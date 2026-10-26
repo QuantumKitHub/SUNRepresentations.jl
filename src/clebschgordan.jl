@@ -17,20 +17,9 @@ function weightmap(basis)
 end
 
 CGC(s1::I, s2::I, s3::I) where {I <: SUNIrrep} = CGC(sectorscalartype(I), s1, s2, s3)
-function CGC(::Type{T}, s1::SUNIrrep{N}, s2::SUNIrrep{N}, s3::SUNIrrep{N}) where {T, N}
-    return _get_CGC(T, (s1, s2, s3))
-end
+CGC(::Type{T}, s1::I, s2::I, s3::I) where {T, I <: SUNIrrep} = SUN_CGC(T, s1, s2, s3)
 
-@noinline function _get_CGC(::Type{T}, @nospecialize(key)) where {T}
-    d::SparseArray{T, 4} = get!(CGC_CACHE, key) do
-        result = tryread(T, key...)
-        isnothing(result) || return result
-        return generate_CGC(T, key...)
-    end
-    return d
-end
-
-function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SUNIrrep}
+@cached function SUN_CGC(::Type{T}, s1::I, s2::I, s3::I)::SparseArray{T, 4} where {T <: Real, I <: SUNIrrep}
     if isone(s1)
         @assert s2 == s3
         CGC = trivial_CGC(T, s2, true)
@@ -44,6 +33,42 @@ function _CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SUNIrrep}
     end
     @debug "Computed CGC: $s1 ⊗ $s2 → $s3"
     return CGC
+end
+
+# The Clebsch-Gordan coefficients are cached in RAM and on disk.
+MemoizationKit.DiskCacheStyle(::typeof(SUN_CGC), args...) = DiskCache(; serializer = CGCSerializer)
+MemoizationKit.diskversion(::typeof(SUN_CGC)) = "1"
+MemoizationKit.default_cache_settings(::typeof(SUN_CGC)) = (; maxsize = 10^5)
+
+# Serializer of the disk cache, which stores the coefficients in a compact format that does not
+# depend on the Julia version: the size, and the linear indices and values of the nonzero entries.
+# Everything else, such as the keys, is written as by `Serialization`.
+mutable struct CGCSerializer{I <: IO} <: Serialization.AbstractSerializer
+    io::I
+    counter::Int
+    table::IdDict{Any, Any}
+    pending_refs::Vector{Int}
+    version::Int
+    CGCSerializer(io::I) where {I <: IO} = new{I}(io, 0, IdDict(), Int[], 0)
+end
+
+function Serialization.serialize(s::CGCSerializer, A::SparseArray{T, 4}) where {T <: Base.IEEEFloat}
+    Serialization.writetag(s.io, Serialization.OBJECT_TAG)
+    serialize(s, typeof(A))
+    entries = collect(nonzero_pairs(A))
+    linear = LinearIndices(A)
+    write(s.io, collect(Int64, size(A)), Int64(length(entries)))
+    write(s.io, Int64[linear[first(e)] for e in entries], T[last(e) for e in entries])
+    return nothing
+end
+function Serialization.deserialize(s::CGCSerializer, ::Type{SparseArray{T, 4}}) where {T <: Base.IEEEFloat}
+    dims = NTuple{4, Int}(read!(s.io, Vector{Int64}(undef, 4)))
+    n = read(s.io, Int64)
+    linear = read!(s.io, Vector{Int64}(undef, n))
+    values = read!(s.io, Vector{T}(undef, n))
+    cartesian = CartesianIndices(dims)
+    data = Dict{CartesianIndex{4}, T}(cartesian[i] => v for (i, v) in zip(linear, values))
+    return SparseArray{T, 4}(data, dims)
 end
 
 gaugefix!(C) = first(qrpos!(cref!(C, TOL_GAUGE)))
