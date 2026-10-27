@@ -4,6 +4,7 @@ using TensorOperations
 using SparseArrayKit
 using RationalRoots
 using LinearAlgebra
+using SparseArrays: SparseArrays, SparseMatrixCSC, sparse
 using TensorKitSectors
 using MemoizationKit: MemoizationKit, @cached, DiskCache
 import SQLite # enables the disk caches of MemoizationKit

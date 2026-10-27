@@ -189,13 +189,8 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     parentpairs = CartesianIndex{3}[]
     terms = Tuple{Int, Int, Int, T}[]
     addpair!(pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
-    # buffers that are reused for all weights, with those for the Gram matrix of the raising
-    # operators large enough for all pairs of any weight
-    npairs(w3) = sum(((w1, m1list),) -> length(m1list) * length(get(map2, w3 .- w1 .+ wshift, _emptyindexlist)), map1)
-    npmax = maximum(npairs, w3list)
-    Bbuffer = Matrix{T}(undef, npmax, npmax)
-    Bμbuffer = Matrix{T}(undef, npmax, npmax)
-    eqsbuffer, parentbuffer, rhsbuffer, solsbuffer, workbuffer = T[], T[], T[], T[], T[]
+    # buffers that are reused for all weights
+    eqsbuffer, parentbuffer, rhsbuffer, solsbuffer, workbuffer, Bμbuffer = T[], T[], T[], T[], T[], T[]
 
     # the CGCs of all α are solved for together, as these share the same equations
     for w3 in view(w3list, 2:length(w3list))
@@ -244,10 +239,11 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
         end
 
         # solve equations, together with the raising equations for stability
-        B = raising_gram!(view(Bbuffer, 1:np, 1:np), Jp_cols1, Jp_cols2, Jm_cols1, Jm_cols2, pairs, pairindex)
+        B = raising_gram(T, Jp_cols1, Jp_cols2, pairs)
+        Bμ = T === Float64 && np >= SPARSE_CHOLESKY_SIZE ? nothing : reuse_buffer!(Bμbuffer, np, np)
         sols = reuse_buffer!(solsbuffer, np, N123, length(m3list))
         work = reuse_buffer!(workbuffer, np, N123, length(m3list))
-        lowering_solve!(sols, work, view(Bμbuffer, 1:np, 1:np), eqs, rhs, B)
+        lowering_solve!(sols, work, Bμ, eqs, rhs, B)
         for (j, m3) in enumerate(m3list), α in 1:N123, (p, pair) in enumerate(pairs)
             CGC[pair, m3, α] = sols[p, α, j]
         end
@@ -258,18 +254,35 @@ end
 # Solve the lowering equations `sols * eqsᵀ = rhs` together with the raising equations, which
 # have the same solution in exact arithmetic but prevent rounding errors from growing from one
 # weight to the next. In the least-squares sense, both give `B * sols + sols * A = 2 * rhs * eqs`,
-# with `A = eqsᵀ * eqs` and `B` from `raising_gram!`. In the eigenbasis of `A`, this decouples into
+# with `A = eqsᵀ * eqs` and `B` from `raising_gram`. In the eigenbasis of `A`, this decouples into
 # a Cholesky solve with `B + μ * I` for every eigenvalue `μ`. `work` and `Bμ` are workspace.
 function lowering_solve!(sols, work, Bμ, eqs, rhs, B)
     μ, U = eigen!(Symmetric(eqs' * eqs))
     mul!(reshape(work, :, length(μ)), reshape(rhs, :, size(rhs, 3)), 2 .* (eqs * U))
-    for k in eachindex(μ)
-        Bμ .= B
-        view(Bμ, diagind(Bμ)) .+= μ[k]
-        ldiv!(cholesky!(Symmetric(Bμ)), view(work, :, :, k))
-    end
+    shifted_solve!(work, Bμ, B, μ)
     mul!(reshape(sols, :, length(μ)), reshape(work, :, length(μ)), U')
     return sols
+end
+
+# Overwrite `X[:, :, k]` with `(B + μ[k] * I) \ X[:, :, k]`, with a dense Cholesky in `Bμ`, or for
+# `Bμ = nothing` with a sparse Cholesky (CHOLMOD, hence only for `Float64`). The latter is used
+# for large blocks, as the fill-in is small, and reuses the symbolic factorization for all `μ[k]`.
+const SPARSE_CHOLESKY_SIZE = 100
+function shifted_solve!(X, Bμ, B, μ)
+    for k in eachindex(μ)
+        copyto!(Bμ, B)
+        view(Bμ, diagind(Bμ)) .+= μ[k]
+        ldiv!(cholesky!(Symmetric(Bμ)), view(X, :, :, k))
+    end
+    return X
+end
+function shifted_solve!(X, ::Nothing, B, μ)
+    F = cholesky(Symmetric(B); shift = μ[1])
+    for k in eachindex(μ)
+        k == 1 || cholesky!(F, Symmetric(B); shift = μ[k])
+        X[:, :, k] = F \ view(X, :, :, k)
+    end
+    return X
 end
 
 # an array of size `dims` that uses (and if necessary enlarges) the memory of `buffer`
@@ -290,36 +303,26 @@ function nonzero_lists(::Type{T}, A; dims::Int) where {T}
 end
 
 # Gram matrix `B = ∑ₗ J⁺ₗᵀ J⁺ₗ` of the raising operators J⁺ₗ = J⁺₁ ⊗ 𝕀 + 𝕀 ⊗ J⁺₂ restricted to
-# the `pairs` |m₁, m₂⟩, which all have the same weight. This includes the J⁺ₗ that map out of the
-# weights of s3, whose raising equations simply have a vanishing right hand side.
-function raising_gram!(B, Jp_cols1, Jp_cols2, Jm_cols1, Jm_cols2, pairs, pairindex)
-    fill!(B, zero(eltype(B)))
+# the `pairs` |m₁, m₂⟩, which all have the same weight, as a sparse matrix. This includes the J⁺ₗ
+# that map out of the weights of s3, whose raising equations simply have a vanishing right hand side.
+function raising_gram(::Type{T}, Jp_cols1, Jp_cols2, pairs) where {T}
+    # `R[p, q] = ⟨q| J⁺ₗ |p⟩`, with the images `q` of all J⁺ₗ, which are distinct as these differ in weight
+    images = Dict{CartesianIndex{2}, Int}()
+    ps, qs, vs = Int[], Int[], T[]
+    addimage!(image) = get!(images, image, length(images) + 1)
     for (p, pair) in enumerate(pairs)
         m1, m2 = Tuple(pair)
-        for l in eachindex(Jp_cols1)
-            # all J⁺ₗ |m₁, m₂⟩, and the pairs that J⁺ₗ maps onto these as well
-            for (m1′, v) in Jp_cols1[l][m1]
-                add_preimages!(B, p, v, CartesianIndex(m1′, m2), Jm_cols1[l], Jm_cols2[l], pairindex)
+        for (cols1, cols2) in zip(Jp_cols1, Jp_cols2)
+            for (m1′, v) in cols1[m1]
+                push!(ps, p); push!(qs, addimage!(CartesianIndex(m1′, m2))); push!(vs, v)
             end
-            for (m2′, v) in Jp_cols2[l][m2]
-                add_preimages!(B, p, v, CartesianIndex(m1, m2′), Jm_cols1[l], Jm_cols2[l], pairindex)
+            for (m2′, v) in cols2[m2]
+                push!(ps, p); push!(qs, addimage!(CartesianIndex(m1, m2′))); push!(vs, v)
             end
         end
     end
-    return B
-end
-# add `v * v′` to `B[p, p′]` for all pairs p′ with `v′ = ⟨image| J⁺ₗ |p′⟩`, given the columns of J⁻ₗ
-function add_preimages!(B, p, v, image, Jm_cols1, Jm_cols2, pairindex)
-    m1′, m2′ = Tuple(image)
-    for (m1, v′) in Jm_cols1[m1′]
-        p′ = get(pairindex, CartesianIndex(m1, m2′), 0)
-        p′ == 0 || (B[p, p′] += v * v′)
-    end
-    for (m2, v′) in Jm_cols2[m2′]
-        p′ = get(pairindex, CartesianIndex(m1′, m2), 0)
-        p′ == 0 || (B[p, p′] += v * v′)
-    end
-    return B
+    R = sparse(ps, qs, vs, length(pairs), length(images))
+    return R * R'
 end
 
 # Auxiliary tools
