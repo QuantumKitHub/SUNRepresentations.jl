@@ -180,22 +180,26 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     w3list = sort(collect(keys(map3)); rev = true)
     wshift = div(nboxes(s1) + nboxes(s2) - nboxes(s3), N)
 
-    # the parent states `(l, m₃′)` of the current weight, the pairs |m₁, m₂⟩ of that weight, the
-    # parent pairs |m₁′, m₂′, m₃′⟩ with their (known) CGCs, and the terms
-    # `(i, parent, pair, J⁻ coefficient)` of the lowering equations
+    # the CGCs of every solved weight, as its pairs |m₁, m₂⟩, their indices, and an array
+    # `sols[p, α, j]` for the `j`-th state of that weight, starting from the highest weight
+    solved = Dict{NTuple{N, Int}, Tuple{Vector{CartesianIndex{2}}, Dict{CartesianIndex{2}, Int}, Array{T, 3}}}()
+    pairs, pairindex = CartesianIndex{2}[], Dict{CartesianIndex{2}, Int}()
+    for (ind, _) in nonzero_pairs(CGC)
+        add_pair!(pairs, pairindex, CartesianIndex(ind[1], ind[2]))
+    end
+    sols = zeros(T, length(pairs), N123, 1)
+    for (ind, v) in nonzero_pairs(CGC)
+        sols[pairindex[CartesianIndex(ind[1], ind[2])], ind[4], 1] = v
+    end
+    solved[first(w3list)] = (pairs, pairindex, sols)
+
+    # the parent states `(l, m₃′)` of the current weight with the CGCs `sols′[p′, α, j′]` of their
+    # pairs as `(sols′, j′)`, and the terms `(i, p′, p, J⁻ coefficient)` of the lowering equations
     parents = Tuple{Int, Int}[]
-    pairs = CartesianIndex{2}[]
-    pairindex = Dict{CartesianIndex{2}, Int}()
-    parentpairs = CartesianIndex{3}[]
+    parentsols = Tuple{Array{T, 3}, Int}[]
     terms = Tuple{Int, Int, Int, T}[]
-    addpair!(pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
-    # buffers that are reused for all weights, with those for the Gram matrix of the raising
-    # operators large enough for all pairs of any weight
-    npairs(w3) = sum(((w1, m1list),) -> length(m1list) * length(get(map2, w3 .- w1 .+ wshift, _emptyindexlist)), map1)
-    npmax = maximum(npairs, w3list)
-    Bbuffer = Matrix{T}(undef, npmax, npmax)
-    Bμbuffer = Matrix{T}(undef, npmax, npmax)
-    eqsbuffer, parentbuffer, rhsbuffer, solsbuffer, workbuffer = T[], T[], T[], T[], T[]
+    # buffers that are reused for all weights
+    eqsbuffer, rhsbuffer, Bcbuffer = T[], T[], T[]
 
     # the CGCs of all α are solved for together, as these share the same equations
     for w3 in view(w3list, 2:length(w3list))
@@ -212,44 +216,53 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
 
         # build CGC equations:
         # J⁻₃ |m₃′⟩ = (J⁻₁ ⊗ 𝕀 + 𝕀 ⊗ J⁻₂) |m₁′, m₂′⟩
-        # pairs that only appear with a vanishing coefficient have vanishing CGCs, and are omitted
-        empty!(pairs)
-        empty!(pairindex)
-        empty!(parentpairs)
+        # pairs that only appear with a vanishing coefficient have vanishing CGCs, and are omitted,
+        # whereas parent pairs that were omitted contribute nothing
+        pairs, pairindex = CartesianIndex{2}[], Dict{CartesianIndex{2}, Int}()
+        empty!(parentsols)
         empty!(terms)
         for (i, (l, m3′)) in enumerate(parents)
             w3′ = shift_weight(w3, l, 1)
+            _, pairindex′, sols′ = solved[w3′]
+            push!(parentsols, (sols′, searchsortedfirst(map3[w3′], m3′)))
             for (w1′, m1′list) in map1
                 m2′list = get(map2, w3′ .- w1′ .+ wshift, _emptyindexlist)
                 for m2′ in m2′list, m1′ in m1′list
-                    push!(parentpairs, CartesianIndex(m1′, m2′, m3′))
-                    q = length(parentpairs)
+                    p′ = get(pairindex′, CartesianIndex(m1′, m2′), 0)
                     for (m1, v) in Jm_cols1[l][m1′]
-                        push!(terms, (i, q, addpair!(CartesianIndex(m1, m2′)), v))
+                        p = add_pair!(pairs, pairindex, CartesianIndex(m1, m2′))
+                        p′ == 0 || push!(terms, (i, p′, p, v))
                     end
                     for (m2, v) in Jm_cols2[l][m2′]
-                        push!(terms, (i, q, addpair!(CartesianIndex(m1′, m2)), v))
+                        p = add_pair!(pairs, pairindex, CartesianIndex(m1′, m2))
+                        p′ == 0 || push!(terms, (i, p′, p, v))
                     end
                 end
             end
         end
-        parentCGC = reuse_buffer!(parentbuffer, length(parentpairs), N123)
-        for α in 1:N123, (q, parent) in enumerate(parentpairs)
-            parentCGC[q, α] = CGC[parent, α]
-        end
         np = length(pairs)
         rhs = fill!(reuse_buffer!(rhsbuffer, np, N123, length(parents)), zero(T))
-        for (i, q, p, v) in terms, α in 1:N123
-            rhs[p, α, i] += v * parentCGC[q, α]
+        for (i, p′, p, v) in terms
+            sols′, j′ = parentsols[i]
+            for α in 1:N123
+                rhs[p, α, i] += v * sols′[p′, α, j′]
+            end
         end
 
         # solve equations, together with the raising equations for stability
-        B = raising_gram!(view(Bbuffer, 1:np, 1:np), Jp_cols1, Jp_cols2, Jm_cols1, Jm_cols2, pairs, pairindex)
-        sols = reuse_buffer!(solsbuffer, np, N123, length(m3list))
-        work = reuse_buffer!(workbuffer, np, N123, length(m3list))
-        lowering_solve!(sols, work, view(Bμbuffer, 1:np, 1:np), eqs, rhs, B)
-        for (j, m3) in enumerate(m3list), α in 1:N123, (p, pair) in enumerate(pairs)
-            CGC[pair, m3, α] = sols[p, α, j]
+        B = raising_gram(T, Jp_cols1, Jp_cols2, pairs)
+        Bc = T === Float64 && np >= SPARSE_CHOLESKY_SIZE ? nothing : reuse_buffer!(Bcbuffer, np, np)
+        sols = Array{T, 3}(undef, np, N123, length(m3list))
+        lowering_solve!(sols, Bc, eqs, rhs, B)
+        solved[w3] = (pairs, pairindex, sols)
+    end
+
+    # entries that `purge!` would remove anyway are not written
+    sizehint!(CGC.data, sum(length ∘ last, values(solved)))
+    for (w3, (pairs, _, sols)) in solved
+        for (j, m3) in enumerate(map3[w3]), α in 1:N123, (p, pair) in enumerate(pairs)
+            v = sols[p, α, j]
+            abs(v) > TOL_PURGE && (CGC[pair, m3, α] = v)
         end
     end
     return CGC
@@ -257,20 +270,31 @@ end
 
 # Solve the lowering equations `sols * eqsᵀ = rhs` together with the raising equations, which
 # have the same solution in exact arithmetic but prevent rounding errors from growing from one
-# weight to the next. In the least-squares sense, both give `B * sols + sols * A = 2 * rhs * eqs`,
-# with `A = eqsᵀ * eqs` and `B` from `raising_gram!`. In the eigenbasis of `A`, this decouples into
-# a Cholesky solve with `B + μ * I` for every eigenvalue `μ`. `work` and `Bμ` are workspace.
-function lowering_solve!(sols, work, Bμ, eqs, rhs, B)
-    μ, U = eigen!(Symmetric(eqs' * eqs))
-    mul!(reshape(work, :, length(μ)), reshape(rhs, :, size(rhs, 3)), 2 .* (eqs * U))
-    for k in eachindex(μ)
-        Bμ .= B
-        view(Bμ, diagind(Bμ)) .+= μ[k]
-        ldiv!(cholesky!(Symmetric(Bμ)), view(work, :, :, k))
+# weight to the next. As both are consistent, any weighting gives the same least-squares solution:
+# weighting the lowering equations with `c * eqs * A⁻² * eqsᵀ`, where `A = eqsᵀ * eqs`, yields
+# `(B + c * I) * sols = rhs * eqs * (I + c * A⁻¹)`, with `B` from `raising_gram`. Choosing `c` as
+# the mean eigenvalue of `A` keeps both sets of equations equally important. `Bc` is workspace.
+function lowering_solve!(sols, Bc, eqs, rhs, B)
+    A = Symmetric(eqs' * eqs)
+    c = tr(A) / size(A, 1)
+    M = rmul!(inv(cholesky(A)), c) + I
+    mul!(reshape(sols, :, size(M, 1)), reshape(rhs, :, size(rhs, 3)), eqs * M)
+    X = reshape(sols, size(sols, 1), :)
+    if isnothing(Bc)
+        # a sparse Cholesky (CHOLMOD, hence only for `Float64`) for large blocks, as the fill-in is small
+        X .= cholesky(Symmetric(B); shift = c) \ X
+    else
+        copyto!(Bc, B)
+        view(Bc, diagind(Bc)) .+= c
+        ldiv!(cholesky!(Symmetric(Bc)), X)
     end
-    mul!(reshape(sols, :, length(μ)), reshape(work, :, length(μ)), U')
     return sols
 end
+# the number of pairs from which on a sparse Cholesky is used
+const SPARSE_CHOLESKY_SIZE = 100
+
+# the index of `pair` in `pairs`, to which it is added if necessary
+add_pair!(pairs, pairindex, pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
 
 # an array of size `dims` that uses (and if necessary enlarges) the memory of `buffer`
 function reuse_buffer!(buffer::Vector, dims::Int...)
@@ -290,43 +314,37 @@ function nonzero_lists(::Type{T}, A; dims::Int) where {T}
 end
 
 # Gram matrix `B = ∑ₗ J⁺ₗᵀ J⁺ₗ` of the raising operators J⁺ₗ = J⁺₁ ⊗ 𝕀 + 𝕀 ⊗ J⁺₂ restricted to
-# the `pairs` |m₁, m₂⟩, which all have the same weight. This includes the J⁺ₗ that map out of the
-# weights of s3, whose raising equations simply have a vanishing right hand side.
-function raising_gram!(B, Jp_cols1, Jp_cols2, Jm_cols1, Jm_cols2, pairs, pairindex)
-    fill!(B, zero(eltype(B)))
+# the `pairs` |m₁, m₂⟩, which all have the same weight, as a sparse matrix. This includes the J⁺ₗ
+# that map out of the weights of s3, whose raising equations simply have a vanishing right hand side.
+function raising_gram(::Type{T}, Jp_cols1, Jp_cols2, pairs) where {T}
+    # `R[p, q] = ⟨q| J⁺ₗ |p⟩`, with the images `q` of all J⁺ₗ, which are distinct as these differ in weight
+    images = Dict{CartesianIndex{2}, Int}()
+    ps, qs, vs = Int[], Int[], T[]
+    addimage!(image) = get!(images, image, length(images) + 1)
     for (p, pair) in enumerate(pairs)
         m1, m2 = Tuple(pair)
-        for l in eachindex(Jp_cols1)
-            # all J⁺ₗ |m₁, m₂⟩, and the pairs that J⁺ₗ maps onto these as well
-            for (m1′, v) in Jp_cols1[l][m1]
-                add_preimages!(B, p, v, CartesianIndex(m1′, m2), Jm_cols1[l], Jm_cols2[l], pairindex)
+        for (cols1, cols2) in zip(Jp_cols1, Jp_cols2)
+            for (m1′, v) in cols1[m1]
+                push!(ps, p)
+                push!(qs, addimage!(CartesianIndex(m1′, m2)))
+                push!(vs, v)
             end
-            for (m2′, v) in Jp_cols2[l][m2]
-                add_preimages!(B, p, v, CartesianIndex(m1, m2′), Jm_cols1[l], Jm_cols2[l], pairindex)
+            for (m2′, v) in cols2[m2]
+                push!(ps, p)
+                push!(qs, addimage!(CartesianIndex(m1, m2′)))
+                push!(vs, v)
             end
         end
     end
-    return B
-end
-# add `v * v′` to `B[p, p′]` for all pairs p′ with `v′ = ⟨image| J⁺ₗ |p′⟩`, given the columns of J⁻ₗ
-function add_preimages!(B, p, v, image, Jm_cols1, Jm_cols2, pairindex)
-    m1′, m2′ = Tuple(image)
-    for (m1, v′) in Jm_cols1[m1′]
-        p′ = get(pairindex, CartesianIndex(m1, m2′), 0)
-        p′ == 0 || (B[p, p′] += v * v′)
-    end
-    for (m2, v′) in Jm_cols2[m2′]
-        p′ = get(pairindex, CartesianIndex(m1′, m2), 0)
-        p′ == 0 || (B[p, p′] += v * v′)
-    end
-    return B
+    R = sparse(ps, qs, vs, length(pairs), length(images))
+    return R * R'
 end
 
 # Auxiliary tools
 function qrpos!(C)
     q, r = qr!(C)
     d = diag(r)
-    map!(x -> x == zero(x) ? 1 : sign(x), d, d)
+    map!(x -> iszero(x) ? one(x) : sign(x), d, d)
     D = Diagonal(d)
     Q = rmul!(Matrix(q), D)
     R = ldiv!(D, Matrix(r))
