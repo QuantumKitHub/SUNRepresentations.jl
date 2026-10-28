@@ -314,10 +314,14 @@ function raising_gram(::Type{T}, Jp_cols1, Jp_cols2, pairs) where {T}
         m1, m2 = Tuple(pair)
         for (cols1, cols2) in zip(Jp_cols1, Jp_cols2)
             for (m1′, v) in cols1[m1]
-                push!(ps, p); push!(qs, addimage!(CartesianIndex(m1′, m2))); push!(vs, v)
+                push!(ps, p)
+                push!(qs, addimage!(CartesianIndex(m1′, m2)))
+                push!(vs, v)
             end
             for (m2′, v) in cols2[m2]
-                push!(ps, p); push!(qs, addimage!(CartesianIndex(m1, m2′))); push!(vs, v)
+                push!(ps, p)
+                push!(qs, addimage!(CartesianIndex(m1, m2′)))
+                push!(vs, v)
             end
         end
     end
@@ -329,7 +333,7 @@ end
 function qrpos!(C)
     q, r = qr!(C)
     d = diag(r)
-    map!(x -> x == zero(x) ? 1 : sign(x), d, d)
+    map!(x -> iszero(x) ? one(x) : sign(x), d, d)
     D = Diagonal(d)
     Q = rmul!(Matrix(q), D)
     R = ldiv!(D, Matrix(r))
