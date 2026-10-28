@@ -2,6 +2,7 @@ using Test
 using TestExtras
 using Random
 using TensorKitSectors
+using MemoizationKit: MemoizationKit, set_cache_size!
 using TensorKit
 using SUNRepresentations
 using Combinatorics
@@ -44,6 +45,10 @@ function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I
 end
 
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
+# the sector tests visit many intermediate irreps, so keep the RAM caches small (in bytes)
+set_cache_size!(SUNRepresentations.SUN_CGC, 2^30; by = MemoizationKit.cachesize)
+set_cache_size!(SUNRepresentations.SUN_Fsymbol, 2^28; by = MemoizationKit.cachesize)
+set_cache_size!(SUNRepresentations.SUN_Rsymbol, 2^26; by = MemoizationKit.cachesize)
 @testset "Sector tests" begin
     for sector in sectorlist
         SectorTestSuite.test_sector(sector)
