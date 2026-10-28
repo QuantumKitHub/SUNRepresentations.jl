@@ -257,10 +257,12 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
         solved[w3] = (pairs, pairindex, sols)
     end
 
+    # entries that `purge!` would remove anyway are not written
     sizehint!(CGC.data, sum(length ∘ last, values(solved)))
     for (w3, (pairs, _, sols)) in solved
         for (j, m3) in enumerate(map3[w3]), α in 1:N123, (p, pair) in enumerate(pairs)
-            CGC[pair, m3, α] = sols[p, α, j]
+            v = sols[p, α, j]
+            abs(v) > TOL_PURGE && (CGC[pair, m3, α] = v)
         end
     end
     return CGC
