@@ -180,17 +180,26 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     w3list = sort(collect(keys(map3)); rev = true)
     wshift = div(nboxes(s1) + nboxes(s2) - nboxes(s3), N)
 
-    # the parent states `(l, m₃′)` of the current weight, the pairs |m₁, m₂⟩ of that weight, the
-    # parent pairs |m₁′, m₂′, m₃′⟩ with their (known) CGCs, and the terms
-    # `(i, parent, pair, J⁻ coefficient)` of the lowering equations
+    # the CGCs of every solved weight, as its pairs |m₁, m₂⟩, their indices, and an array
+    # `sols[p, α, j]` for the `j`-th state of that weight, starting from the highest weight
+    solved = Dict{NTuple{N, Int}, Tuple{Vector{CartesianIndex{2}}, Dict{CartesianIndex{2}, Int}, Array{T, 3}}}()
+    pairs, pairindex = CartesianIndex{2}[], Dict{CartesianIndex{2}, Int}()
+    for (ind, _) in nonzero_pairs(CGC)
+        add_pair!(pairs, pairindex, CartesianIndex(ind[1], ind[2]))
+    end
+    sols = zeros(T, length(pairs), N123, 1)
+    for (ind, v) in nonzero_pairs(CGC)
+        sols[pairindex[CartesianIndex(ind[1], ind[2])], ind[4], 1] = v
+    end
+    solved[first(w3list)] = (pairs, pairindex, sols)
+
+    # the parent states `(l, m₃′)` of the current weight with the CGCs `sols′[p′, α, j′]` of their
+    # pairs as `(sols′, j′)`, and the terms `(i, p′, p, J⁻ coefficient)` of the lowering equations
     parents = Tuple{Int, Int}[]
-    pairs = CartesianIndex{2}[]
-    pairindex = Dict{CartesianIndex{2}, Int}()
-    parentpairs = CartesianIndex{3}[]
+    parentsols = Tuple{Array{T, 3}, Int}[]
     terms = Tuple{Int, Int, Int, T}[]
-    addpair!(pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
     # buffers that are reused for all weights
-    eqsbuffer, parentbuffer, rhsbuffer, solsbuffer, workbuffer, Bμbuffer = T[], T[], T[], T[], T[], T[]
+    eqsbuffer, rhsbuffer, workbuffer, Bμbuffer = T[], T[], T[], T[]
 
     # the CGCs of all α are solved for together, as these share the same equations
     for w3 in view(w3list, 2:length(w3list))
@@ -207,44 +216,51 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
 
         # build CGC equations:
         # J⁻₃ |m₃′⟩ = (J⁻₁ ⊗ 𝕀 + 𝕀 ⊗ J⁻₂) |m₁′, m₂′⟩
-        # pairs that only appear with a vanishing coefficient have vanishing CGCs, and are omitted
-        empty!(pairs)
-        empty!(pairindex)
-        empty!(parentpairs)
+        # pairs that only appear with a vanishing coefficient have vanishing CGCs, and are omitted,
+        # whereas parent pairs that were omitted contribute nothing
+        pairs, pairindex = CartesianIndex{2}[], Dict{CartesianIndex{2}, Int}()
+        empty!(parentsols)
         empty!(terms)
         for (i, (l, m3′)) in enumerate(parents)
             w3′ = shift_weight(w3, l, 1)
+            _, pairindex′, sols′ = solved[w3′]
+            push!(parentsols, (sols′, searchsortedfirst(map3[w3′], m3′)))
             for (w1′, m1′list) in map1
                 m2′list = get(map2, w3′ .- w1′ .+ wshift, _emptyindexlist)
                 for m2′ in m2′list, m1′ in m1′list
-                    push!(parentpairs, CartesianIndex(m1′, m2′, m3′))
-                    q = length(parentpairs)
+                    p′ = get(pairindex′, CartesianIndex(m1′, m2′), 0)
                     for (m1, v) in Jm_cols1[l][m1′]
-                        push!(terms, (i, q, addpair!(CartesianIndex(m1, m2′)), v))
+                        p = add_pair!(pairs, pairindex, CartesianIndex(m1, m2′))
+                        p′ == 0 || push!(terms, (i, p′, p, v))
                     end
                     for (m2, v) in Jm_cols2[l][m2′]
-                        push!(terms, (i, q, addpair!(CartesianIndex(m1′, m2)), v))
+                        p = add_pair!(pairs, pairindex, CartesianIndex(m1′, m2))
+                        p′ == 0 || push!(terms, (i, p′, p, v))
                     end
                 end
             end
         end
-        parentCGC = reuse_buffer!(parentbuffer, length(parentpairs), N123)
-        for α in 1:N123, (q, parent) in enumerate(parentpairs)
-            parentCGC[q, α] = CGC[parent, α]
-        end
         np = length(pairs)
         rhs = fill!(reuse_buffer!(rhsbuffer, np, N123, length(parents)), zero(T))
-        for (i, q, p, v) in terms, α in 1:N123
-            rhs[p, α, i] += v * parentCGC[q, α]
+        for (i, p′, p, v) in terms
+            sols′, j′ = parentsols[i]
+            for α in 1:N123
+                rhs[p, α, i] += v * sols′[p′, α, j′]
+            end
         end
 
         # solve equations, together with the raising equations for stability
         B = raising_gram(T, Jp_cols1, Jp_cols2, pairs)
         Bμ = T === Float64 && np >= SPARSE_CHOLESKY_SIZE ? nothing : reuse_buffer!(Bμbuffer, np, np)
-        sols = reuse_buffer!(solsbuffer, np, N123, length(m3list))
+        sols = Array{T, 3}(undef, np, N123, length(m3list))
         work = reuse_buffer!(workbuffer, np, N123, length(m3list))
         lowering_solve!(sols, work, Bμ, eqs, rhs, B)
-        for (j, m3) in enumerate(m3list), α in 1:N123, (p, pair) in enumerate(pairs)
+        solved[w3] = (pairs, pairindex, sols)
+    end
+
+    sizehint!(CGC.data, sum(length ∘ last, values(solved)))
+    for (w3, (pairs, _, sols)) in solved
+        for (j, m3) in enumerate(map3[w3]), α in 1:N123, (p, pair) in enumerate(pairs)
             CGC[pair, m3, α] = sols[p, α, j]
         end
     end
@@ -284,6 +300,9 @@ function shifted_solve!(X, ::Nothing, B, μ)
     end
     return X
 end
+
+# the index of `pair` in `pairs`, to which it is added if necessary
+add_pair!(pairs, pairindex, pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
 
 # an array of size `dims` that uses (and if necessary enlarges) the memory of `buffer`
 function reuse_buffer!(buffer::Vector, dims::Int...)
