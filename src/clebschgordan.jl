@@ -357,26 +357,25 @@ function cref!(
     )
     nr, nc = size(A)
     i = j = 1
+    # rows with entries below `ɛ` are not used as pivots, but are kept: as only column operations
+    # are applied to all rows, the columns of `A` keep spanning the same space
     @inbounds while i <= nr && j <= nc
         (m, mj) = findabsmax(view(A, i, j:nc))
         mj = mj + j - 1
         if m <= ɛ
-            if ɛ > 0
-                A[i, j:nc] .= zero(eltype(A))
-            end
             i += 1
         else
-            @simd for k in i:nr
+            @simd for k in 1:nr
                 A[k, j], A[k, mj] = A[k, mj], A[k, j]
             end
             d = A[i, j]
-            @simd for k in i:nr
+            @simd for k in 1:nr
                 A[k, j] /= d
             end
             for k in 1:nc
                 if k != j
                     d = A[i, k]
-                    @simd for l in i:nr
+                    @simd for l in 1:nr
                         A[l, k] -= d * A[l, j]
                     end
                 end
