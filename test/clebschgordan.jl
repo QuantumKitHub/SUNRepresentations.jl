@@ -6,9 +6,9 @@ using SUNRepresentations: annihilation
 using SparseArrayKit: nonzero_values
 
 # for SU(2), the CGCs are known exactly: compare with those of SU2Irrep, which has the opposite
-# basis order, up to an overall sign
+# basis order, up to an overall sign (the largest spins have highest-weight CGCs below `TOL_GAUGE`)
 @testset "SU(2) CGCs for large spins" begin
-    for (n1, n2, n3) in ((40, 40, 20), (80, 80, 80), (80, 41, 61))
+    for (n1, n2, n3) in ((40, 40, 20), (80, 80, 80), (80, 41, 61), (200, 200, 200), (250, 120, 200))
         s1, s2, s3 = SUNIrrep{2}(n1, 0), SUNIrrep{2}(n2, 0), SUNIrrep{2}(n3, 0)
         C = Array(CGC(Float64, s1, s2, s3))
         ref = fusiontensor(SU2Irrep(n1 // 2), SU2Irrep(n2 // 2), SU2Irrep(n3 // 2))
