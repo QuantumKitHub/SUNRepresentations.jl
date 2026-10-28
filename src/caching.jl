@@ -2,6 +2,8 @@
 # MemoizationKit, see `SUN_CGC`. The CGCs are also cached on disk, in a scratch space of
 # SUNRepresentations by default. Both are configured through MemoizationKit's preferences, e.g.
 # `MemoizationKit.set_cache_preferences!(SUNRepresentations; disk_path = "/scratch/cgc")`.
+# The RAM caches are bounded in bytes: 4 GiB for the CGCs, 512 MiB for the F-symbols and
+# 128 MiB for the R-symbols.
 
 """
     precompute_disk_cache(N, a_max = 1, T = Float64)

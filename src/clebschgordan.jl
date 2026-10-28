@@ -38,7 +38,8 @@ end
 # The Clebsch-Gordan coefficients are cached in RAM and on disk.
 MemoizationKit.DiskCacheStyle(::typeof(SUN_CGC), args...) = DiskCache(; serializer = CGCSerializer)
 MemoizationKit.diskversion(::typeof(SUN_CGC)) = "1"
-MemoizationKit.default_cache_settings(::typeof(SUN_CGC)) = (; maxsize = 10^5)
+# the RAM cache is bounded in bytes, as a single CGC can take up hundreds of megabytes
+MemoizationKit.default_cache_settings(::typeof(SUN_CGC)) = (; measure = "bytes", maxsize = 2^32)
 
 # Serializer of the disk cache, which stores the coefficients in a compact format that does not
 # depend on the Julia version: the size, and the linear indices and values of the nonzero entries.

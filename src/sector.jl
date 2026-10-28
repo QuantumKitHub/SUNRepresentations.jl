@@ -152,7 +152,7 @@ TensorKitSectors.Fsymbol(a::I, b::I, c::I, d::I, e::I, f::I) where {I <: SUNIrre
         A[1, 2, 3, -1] * B[3, 4, -2]
     return Array(F)
 end
-MemoizationKit.default_cache_settings(::typeof(SUN_Fsymbol)) = (; maxsize = 10^5)
+MemoizationKit.default_cache_settings(::typeof(SUN_Fsymbol)) = (; measure = "bytes", maxsize = 2^29)
 
 TensorKitSectors.braidingscalartype(::Type{<:SUNIrrep}) = Float64
 TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep} = SUN_Rsymbol(a, b, c)
@@ -168,4 +168,4 @@ TensorKitSectors.Rsymbol(a::I, b::I, c::I) where {I <: SUNIrrep} = SUN_Rsymbol(a
     @tensor R[-1; -2] := conj(B[1, 2, -2]) * A[2, 1, -1]
     return Array(R)
 end
-MemoizationKit.default_cache_settings(::typeof(SUN_Rsymbol)) = (; maxsize = 10^5)
+MemoizationKit.default_cache_settings(::typeof(SUN_Rsymbol)) = (; measure = "bytes", maxsize = 2^27)
