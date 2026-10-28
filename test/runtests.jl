@@ -50,6 +50,7 @@ end
 
 include("caching.jl")
 include("casimir.jl")
+include("clebschgordan.jl")
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
 include("sectors.jl")
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep)

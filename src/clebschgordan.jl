@@ -155,13 +155,21 @@ function highest_weight_CGC(T::Type{<:Real}, s1::I, s2::I, s3::I) where {I <: SU
     return CGC
 end
 
+# the weight `w` shifted by `δ` times the `l`-th simple root, e.g. raised by J⁺ₗ for `δ = 1`
+shift_weight(w, l, δ) = Base.setindex(Base.setindex(w, w[l] + δ, l), w[l + 1] - δ, l + 1)
+
 function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} where {N}
     N123 = size(CGC, 4)
     T = eltype(CGC)
 
     Jm_list1 = annihilation(s1)
     Jm_list2 = annihilation(s2)
-    Jm_list3 = annihilation(s3)
+    # the nonzero entries in the columns of J⁻ₗ and of J⁺ₗ = J⁻ₗᵀ
+    Jm_cols1 = map(J⁻ -> nonzero_lists(T, J⁻; dims = 2), Jm_list1)
+    Jm_cols2 = map(J⁻ -> nonzero_lists(T, J⁻; dims = 2), Jm_list2)
+    Jm_cols3 = map(J⁻ -> nonzero_lists(T, J⁻; dims = 2), annihilation(s3))
+    Jp_cols1 = map(J⁻ -> nonzero_lists(T, J⁻; dims = 1), Jm_list1)
+    Jp_cols2 = map(J⁻ -> nonzero_lists(T, J⁻; dims = 1), Jm_list2)
 
     map1 = weightmap(basis(s1))
     map2 = weightmap(basis(s2))
@@ -170,93 +178,148 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     # reverse lexographic order: so all relevant parents should come earlier
     # and should thus have been solved
     w3list = sort(collect(keys(map3)); rev = true)
-
-    # precompute some data
     wshift = div(nboxes(s1) + nboxes(s2) - nboxes(s3), N)
-    rhs_rows = Int[]
-    rhs_cols = CartesianIndex{2}[]
-    rhs_vals = T[]
 
-    # @threads for α = 1:N123 # TODO: consider multithreaded implementation
-    for α in 1:N123
-        for w3 in view(w3list, 2:length(w3list))
-            m3list = map3[w3]
-            jmax = length(m3list)
-            imax = sum(1:(N - 1)) do l
-                w3′ = Base.setindex(w3, w3[l] + 1, l)
-                w3′ = Base.setindex(w3′, w3[l + 1] - 1, l + 1)
-                return length(get(map3, w3′, _emptyindexlist))
-            end
-            eqs = Array{T}(undef, (imax, jmax))
+    # the parent states `(l, m₃′)` of the current weight, the pairs |m₁, m₂⟩ of that weight, the
+    # parent pairs |m₁′, m₂′, m₃′⟩ with their (known) CGCs, and the terms
+    # `(i, parent, pair, J⁻ coefficient)` of the lowering equations
+    parents = Tuple{Int, Int}[]
+    pairs = CartesianIndex{2}[]
+    pairindex = Dict{CartesianIndex{2}, Int}()
+    parentpairs = CartesianIndex{3}[]
+    terms = Tuple{Int, Int, Int, T}[]
+    addpair!(pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
+    # buffers that are reused for all weights, with those for the Gram matrix of the raising
+    # operators large enough for all pairs of any weight
+    npairs(w3) = sum(((w1, m1list),) -> length(m1list) * length(get(map2, w3 .- w1 .+ wshift, _emptyindexlist)), map1)
+    npmax = maximum(npairs, w3list)
+    Bbuffer = Matrix{T}(undef, npmax, npmax)
+    Bμbuffer = Matrix{T}(undef, npmax, npmax)
+    eqsbuffer, parentbuffer, rhsbuffer, solsbuffer, workbuffer = T[], T[], T[], T[], T[]
 
-            # reset vectors but avoid allocations
-            empty!(rhs_rows)
-            empty!(rhs_cols)
-            empty!(rhs_vals)
+    # the CGCs of all α are solved for together, as these share the same equations
+    for w3 in view(w3list, 2:length(w3list))
+        m3list = map3[w3] # sorted
+        # the states |m₃′⟩ that are lowered to this weight by J⁻ₗ
+        empty!(parents)
+        for l in 1:(N - 1), m3′ in get(map3, shift_weight(w3, l, 1), _emptyindexlist)
+            push!(parents, (l, m3′))
+        end
+        eqs = fill!(reuse_buffer!(eqsbuffer, length(parents), length(m3list)), zero(T))
+        for (i, (l, m3′)) in enumerate(parents), (m3, v) in Jm_cols3[l][m3′]
+            eqs[i, searchsortedfirst(m3list, m3)] = v
+        end
 
-            i = 0
-            # build CGC equations:
-            # J⁻₃ |m₃⟩ = (J⁻₁ ⊗ 𝕀 + 𝕀 ⊗ J⁻₂) |m₁, m₂>
-            for (l, (J⁻₁, J⁻₂, J⁻₃)) in enumerate(zip(Jm_list1, Jm_list2, Jm_list3))
-                w3′ = Base.setindex(w3, w3[l] + 1, l)
-                w3′ = Base.setindex(w3′, w3[l + 1] - 1, l + 1)
-                for m3′ in get(map3, w3′, _emptyindexlist)
-                    i += 1
-                    for (j, m3) in enumerate(m3list)
-                        eqs[i, j] = J⁻₃[m3, m3′]
+        # build CGC equations:
+        # J⁻₃ |m₃′⟩ = (J⁻₁ ⊗ 𝕀 + 𝕀 ⊗ J⁻₂) |m₁′, m₂′⟩
+        # pairs that only appear with a vanishing coefficient have vanishing CGCs, and are omitted
+        empty!(pairs)
+        empty!(pairindex)
+        empty!(parentpairs)
+        empty!(terms)
+        for (i, (l, m3′)) in enumerate(parents)
+            w3′ = shift_weight(w3, l, 1)
+            for (w1′, m1′list) in map1
+                m2′list = get(map2, w3′ .- w1′ .+ wshift, _emptyindexlist)
+                for m2′ in m2′list, m1′ in m1′list
+                    push!(parentpairs, CartesianIndex(m1′, m2′, m3′))
+                    q = length(parentpairs)
+                    for (m1, v) in Jm_cols1[l][m1′]
+                        push!(terms, (i, q, addpair!(CartesianIndex(m1, m2′)), v))
                     end
-                    for (w1′, m1′list) in map1
-                        w2′ = w3′ .- w1′ .+ wshift
-                        m2′list = get(map2, w2′, _emptyindexlist)
-                        isempty(m2′list) && continue
-                        for m2′ in m2′list, m1′ in m1′list
-                            CGCcoeff = CGC[m1′, m2′, m3′, α]
-                            # apply J⁻₁
-                            w1 = Base.setindex(w1′, w1′[l] - 1, l)
-                            w1 = Base.setindex(w1, w1′[l + 1] + 1, l + 1)
-                            for m1 in get(map1, w1, _emptyindexlist)
-                                m2 = m2′
-                                Jm1coeff = J⁻₁[m1, m1′]
-                                push!(rhs_rows, i)
-                                push!(rhs_cols, CartesianIndex(m1, m2))
-                                push!(rhs_vals, Jm1coeff * CGCcoeff)
-                            end
-                            # apply J⁻₂
-                            w2 = Base.setindex(w2′, w2′[l] - 1, l)
-                            w2 = Base.setindex(w2, w2′[l + 1] + 1, l + 1)
-                            for m2 in get(map2, w2, _emptyindexlist)
-                                m1 = m1′
-                                Jm2coeff = J⁻₂[m2, m2′]
-                                push!(rhs_rows, i)
-                                push!(rhs_cols, CartesianIndex(m1, m2))
-                                push!(rhs_vals, Jm2coeff * CGCcoeff)
-                            end
-                        end
+                    for (m2, v) in Jm_cols2[l][m2′]
+                        push!(terms, (i, q, addpair!(CartesianIndex(m1′, m2)), v))
                     end
-                end
-            end
-
-            # construct dense array for the nonzero columns exclusively
-            mask = unique(rhs_cols)
-            rhs_cols′ = indexin(rhs_cols, mask)
-            rhs = zeros(T, imax, length(mask))
-            @inbounds for (row, col, val) in zip(rhs_rows, rhs_cols′, rhs_vals)
-                rhs[row, col] += val
-            end
-
-            # solve equations
-            sols = ldiv!(qr!(eqs), rhs)
-
-            # fill in CGC
-            # loop over sols in column major order, CGC is hashmap anyways
-            @inbounds for (i, Im1m2) in enumerate(mask)
-                for (j, m3) in enumerate(m3list)
-                    CGC[Im1m2, m3, α] += sols[j, i]
                 end
             end
         end
+        parentCGC = reuse_buffer!(parentbuffer, length(parentpairs), N123)
+        for α in 1:N123, (q, parent) in enumerate(parentpairs)
+            parentCGC[q, α] = CGC[parent, α]
+        end
+        np = length(pairs)
+        rhs = fill!(reuse_buffer!(rhsbuffer, np, N123, length(parents)), zero(T))
+        for (i, q, p, v) in terms, α in 1:N123
+            rhs[p, α, i] += v * parentCGC[q, α]
+        end
+
+        # solve equations, together with the raising equations for stability
+        B = raising_gram!(view(Bbuffer, 1:np, 1:np), Jp_cols1, Jp_cols2, Jm_cols1, Jm_cols2, pairs, pairindex)
+        sols = reuse_buffer!(solsbuffer, np, N123, length(m3list))
+        work = reuse_buffer!(workbuffer, np, N123, length(m3list))
+        lowering_solve!(sols, work, view(Bμbuffer, 1:np, 1:np), eqs, rhs, B)
+        for (j, m3) in enumerate(m3list), α in 1:N123, (p, pair) in enumerate(pairs)
+            CGC[pair, m3, α] = sols[p, α, j]
+        end
     end
     return CGC
+end
+
+# Solve the lowering equations `sols * eqsᵀ = rhs` together with the raising equations, which
+# have the same solution in exact arithmetic but prevent rounding errors from growing from one
+# weight to the next. In the least-squares sense, both give `B * sols + sols * A = 2 * rhs * eqs`,
+# with `A = eqsᵀ * eqs` and `B` from `raising_gram!`. In the eigenbasis of `A`, this decouples into
+# a Cholesky solve with `B + μ * I` for every eigenvalue `μ`. `work` and `Bμ` are workspace.
+function lowering_solve!(sols, work, Bμ, eqs, rhs, B)
+    μ, U = eigen!(Symmetric(eqs' * eqs))
+    mul!(reshape(work, :, length(μ)), reshape(rhs, :, size(rhs, 3)), 2 .* (eqs * U))
+    for k in eachindex(μ)
+        Bμ .= B
+        view(Bμ, diagind(Bμ)) .+= μ[k]
+        ldiv!(cholesky!(Symmetric(Bμ)), view(work, :, :, k))
+    end
+    mul!(reshape(sols, :, length(μ)), reshape(work, :, length(μ)), U')
+    return sols
+end
+
+# an array of size `dims` that uses (and if necessary enlarges) the memory of `buffer`
+function reuse_buffer!(buffer::Vector, dims::Int...)
+    n = prod(dims)
+    length(buffer) < n && resize!(buffer, n)
+    return reshape(view(buffer, 1:n), dims)
+end
+
+# nonzero entries of the sparse matrix `A` in every column `j`, as `i => A[i, j]`, or in every
+# row `i` for `dims = 1`, as `j => A[i, j]`
+function nonzero_lists(::Type{T}, A; dims::Int) where {T}
+    lists = [Pair{Int, T}[] for _ in axes(A, dims)]
+    for (I, v) in nonzero_pairs(A)
+        push!(lists[I[dims]], I[3 - dims] => convert(T, v))
+    end
+    return lists
+end
+
+# Gram matrix `B = ∑ₗ J⁺ₗᵀ J⁺ₗ` of the raising operators J⁺ₗ = J⁺₁ ⊗ 𝕀 + 𝕀 ⊗ J⁺₂ restricted to
+# the `pairs` |m₁, m₂⟩, which all have the same weight. This includes the J⁺ₗ that map out of the
+# weights of s3, whose raising equations simply have a vanishing right hand side.
+function raising_gram!(B, Jp_cols1, Jp_cols2, Jm_cols1, Jm_cols2, pairs, pairindex)
+    fill!(B, zero(eltype(B)))
+    for (p, pair) in enumerate(pairs)
+        m1, m2 = Tuple(pair)
+        for l in eachindex(Jp_cols1)
+            # all J⁺ₗ |m₁, m₂⟩, and the pairs that J⁺ₗ maps onto these as well
+            for (m1′, v) in Jp_cols1[l][m1]
+                add_preimages!(B, p, v, CartesianIndex(m1′, m2), Jm_cols1[l], Jm_cols2[l], pairindex)
+            end
+            for (m2′, v) in Jp_cols2[l][m2]
+                add_preimages!(B, p, v, CartesianIndex(m1, m2′), Jm_cols1[l], Jm_cols2[l], pairindex)
+            end
+        end
+    end
+    return B
+end
+# add `v * v′` to `B[p, p′]` for all pairs p′ with `v′ = ⟨image| J⁺ₗ |p′⟩`, given the columns of J⁻ₗ
+function add_preimages!(B, p, v, image, Jm_cols1, Jm_cols2, pairindex)
+    m1′, m2′ = Tuple(image)
+    for (m1, v′) in Jm_cols1[m1′]
+        p′ = get(pairindex, CartesianIndex(m1, m2′), 0)
+        p′ == 0 || (B[p, p′] += v * v′)
+    end
+    for (m2, v′) in Jm_cols2[m2′]
+        p′ = get(pairindex, CartesianIndex(m1′, m2), 0)
+        p′ == 0 || (B[p, p′] += v * v′)
+    end
+    return B
 end
 
 # Auxiliary tools
