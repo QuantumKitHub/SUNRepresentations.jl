@@ -199,7 +199,7 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
     parentsols = Tuple{Array{T, 3}, Int}[]
     terms = Tuple{Int, Int, Int, T}[]
     # buffers that are reused for all weights
-    eqsbuffer, rhsbuffer, workbuffer, Bμbuffer = T[], T[], T[], T[]
+    eqsbuffer, rhsbuffer, Bcbuffer = T[], T[], T[]
 
     # the CGCs of all α are solved for together, as these share the same equations
     for w3 in view(w3list, 2:length(w3list))
@@ -251,10 +251,9 @@ function lower_weight_CGC!(CGC, s1::I, s2::I, s3::I) where {I <: SUNIrrep{N}} wh
 
         # solve equations, together with the raising equations for stability
         B = raising_gram(T, Jp_cols1, Jp_cols2, pairs)
-        Bμ = T === Float64 && np >= SPARSE_CHOLESKY_SIZE ? nothing : reuse_buffer!(Bμbuffer, np, np)
+        Bc = T === Float64 && np >= SPARSE_CHOLESKY_SIZE ? nothing : reuse_buffer!(Bcbuffer, np, np)
         sols = Array{T, 3}(undef, np, N123, length(m3list))
-        work = reuse_buffer!(workbuffer, np, N123, length(m3list))
-        lowering_solve!(sols, work, Bμ, eqs, rhs, B)
+        lowering_solve!(sols, Bc, eqs, rhs, B)
         solved[w3] = (pairs, pairindex, sols)
     end
 
@@ -269,37 +268,28 @@ end
 
 # Solve the lowering equations `sols * eqsᵀ = rhs` together with the raising equations, which
 # have the same solution in exact arithmetic but prevent rounding errors from growing from one
-# weight to the next. In the least-squares sense, both give `B * sols + sols * A = 2 * rhs * eqs`,
-# with `A = eqsᵀ * eqs` and `B` from `raising_gram`. In the eigenbasis of `A`, this decouples into
-# a Cholesky solve with `B + μ * I` for every eigenvalue `μ`. `work` and `Bμ` are workspace.
-function lowering_solve!(sols, work, Bμ, eqs, rhs, B)
-    μ, U = eigen!(Symmetric(eqs' * eqs))
-    mul!(reshape(work, :, length(μ)), reshape(rhs, :, size(rhs, 3)), 2 .* (eqs * U))
-    shifted_solve!(work, Bμ, B, μ)
-    mul!(reshape(sols, :, length(μ)), reshape(work, :, length(μ)), U')
+# weight to the next. As both are consistent, any weighting gives the same least-squares solution:
+# weighting the lowering equations with `c * eqs * A⁻² * eqsᵀ`, where `A = eqsᵀ * eqs`, yields
+# `(B + c * I) * sols = rhs * eqs * (I + c * A⁻¹)`, with `B` from `raising_gram`. Choosing `c` as
+# the mean eigenvalue of `A` keeps both sets of equations equally important. `Bc` is workspace.
+function lowering_solve!(sols, Bc, eqs, rhs, B)
+    A = Symmetric(eqs' * eqs)
+    c = tr(A) / size(A, 1)
+    M = rmul!(inv(cholesky(A)), c) + I
+    mul!(reshape(sols, :, size(M, 1)), reshape(rhs, :, size(rhs, 3)), eqs * M)
+    X = reshape(sols, size(sols, 1), :)
+    if isnothing(Bc)
+        # a sparse Cholesky (CHOLMOD, hence only for `Float64`) for large blocks, as the fill-in is small
+        X .= cholesky(Symmetric(B); shift = c) \ X
+    else
+        copyto!(Bc, B)
+        view(Bc, diagind(Bc)) .+= c
+        ldiv!(cholesky!(Symmetric(Bc)), X)
+    end
     return sols
 end
-
-# Overwrite `X[:, :, k]` with `(B + μ[k] * I) \ X[:, :, k]`, with a dense Cholesky in `Bμ`, or for
-# `Bμ = nothing` with a sparse Cholesky (CHOLMOD, hence only for `Float64`). The latter is used
-# for large blocks, as the fill-in is small, and reuses the symbolic factorization for all `μ[k]`.
+# the number of pairs from which on a sparse Cholesky is used
 const SPARSE_CHOLESKY_SIZE = 100
-function shifted_solve!(X, Bμ, B, μ)
-    for k in eachindex(μ)
-        copyto!(Bμ, B)
-        view(Bμ, diagind(Bμ)) .+= μ[k]
-        ldiv!(cholesky!(Symmetric(Bμ)), view(X, :, :, k))
-    end
-    return X
-end
-function shifted_solve!(X, ::Nothing, B, μ)
-    F = cholesky(Symmetric(B); shift = μ[1])
-    for k in eachindex(μ)
-        k == 1 || cholesky!(F, Symmetric(B); shift = μ[k])
-        X[:, :, k] = F \ view(X, :, :, k)
-    end
-    return X
-end
 
 # the index of `pair` in `pairs`, to which it is added if necessary
 add_pair!(pairs, pairindex, pair) = get!(() -> (push!(pairs, pair); length(pairs)), pairindex, pair)
