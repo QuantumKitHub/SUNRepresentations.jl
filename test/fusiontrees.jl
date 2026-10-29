@@ -1,15 +1,19 @@
+# the trees grow quickly with the dimensions, so use the smallest nontrivial irreps instead of
+# `randsector`, which draws from the larger `smallset` of the sector tests
+fusiontree_sector(::Type{I}) where {I <: SUNIrrep} = rand(filter(!isunit, collect(take(values(I), 5))))
+
 for I in sectorlist
     println("------------------------------------")
     println("Fusion Trees $I")
     println("------------------------------------")
     ti = time()
     N = 5
-    out = ntuple(n -> randsector(I), N)
+    out = ntuple(n -> fusiontree_sector(I), N)
     isdual = ntuple(n -> rand(Bool), N)
     in = rand(collect(⊗(out...)))
     numtrees = count(n -> true, fusiontrees(out, in, isdual))
     while !(0 < numtrees < 30)
-        out = ntuple(n -> randsector(I), N)
+        out = ntuple(n -> fusiontree_sector(I), N)
         in = rand(collect(⊗(out...)))
         numtrees = count(n -> true, fusiontrees(out, in, isdual))
     end
@@ -33,12 +37,12 @@ for I in sectorlist
 
     @timedtestset "Fusion tree $I: insertat" begin
         N = 3
-        out2 = ntuple(n -> randsector(I), N)
+        out2 = ntuple(n -> fusiontree_sector(I), N)
         in2 = rand(collect(⊗(out2...)))
         isdual2 = ntuple(n -> rand(Bool), N)
         f2 = rand(collect(fusiontrees(out2, in2, isdual2)))
         for i in 1:N
-            out1 = ntuple(n -> randsector(I), N)
+            out1 = ntuple(n -> fusiontree_sector(I), N)
             out1 = Base.setindex(out1, in2, i)
             in1 = rand(collect(⊗(out1...)))
             isdual1 = ntuple(n -> rand(Bool), N)
@@ -69,10 +73,10 @@ for I in sectorlist
 
     @timedtestset "Fusion tree $I: merging" begin
         N = 3
-        out1 = ntuple(n -> randsector(I), N)
+        out1 = ntuple(n -> fusiontree_sector(I), N)
         in1 = rand(collect(⊗(out1...)))
         f1 = rand(collect(fusiontrees(out1, in1)))
-        out2 = ntuple(n -> randsector(I), N)
+        out2 = ntuple(n -> fusiontree_sector(I), N)
         in2 = rand(collect(⊗(out2...)))
         f2 = rand(collect(fusiontrees(out2, in2)))
 
@@ -109,10 +113,10 @@ for I in sectorlist
     end
 
     N = 3
-    out = ntuple(n -> randsector(I), N)
+    out = ntuple(n -> fusiontree_sector(I), N)
     numtrees = count(n -> true, fusiontrees((out..., map(dual, out)...)))
     while !(0 < numtrees < 100)
-        out = ntuple(n -> randsector(I), N)
+        out = ntuple(n -> fusiontree_sector(I), N)
         numtrees = count(n -> true, fusiontrees((out..., map(dual, out)...)))
     end
     incoming = rand(collect(⊗(out...)))
