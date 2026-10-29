@@ -29,19 +29,16 @@ testsuite_path = joinpath(
 include(testsuite_path)
 using .SectorTestSuite: randsector, smallset
 
+# the pentagon test scales steeply with the dimensions, so keep these small enough for CI
 function SectorTestSuite.smallset(::Type{I}) where {I <: SUNIrrep}
     N = SUNRepresentations.rank(I)
-    size = N > 4 ? 4 : 5
-    dim_limit = N > 4 ? 5 * N : 10 * N
+    size = N == 3 ? 5 : N == 4 ? 4 : 3
+    dim_limit = N == 3 ? 11 : 16
     return smallset(I, size, dim_limit)
 end
 function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1 <: SUNIrrep, I2 <: SUNIrrep}
-    s1 = smallset(I1)
-    s2 = smallset(I2)
-    N = max(SUNRepresentations.rank(I1), SUNRepresentations.rank(I2))
-    size = N > 4 ? 4 : 5
-    dim_limit = N > 4 ? 25 * N : 50 * N
-    return resize!(shuffle!([a ⊠ b for a in s1 for b in s2 if dim(a) * dim(b) <= dim_limit]), size)
+    products = [a ⊠ b for a in smallset(I1) for b in smallset(I2) if dim(a) * dim(b) <= 30]
+    return first(shuffle!(products), 5)
 end
 
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
