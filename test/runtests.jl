@@ -1,7 +1,8 @@
 using Test
 using TestExtras
-using Aqua
 using Random
+using TensorKitSectors
+using MemoizationKit: MemoizationKit, set_cache_size!
 using TensorKit
 using SUNRepresentations
 using Combinatorics
@@ -9,7 +10,7 @@ using TensorKit
 using TensorKit: ProductSector, fusiontensor, pentagon_equation, hexagon_equation,
     FusionTreeBlock
 using TensorOperations
-using Base.Iterators: take, product
+using Base.Iterators: take
 using SparseArrayKit: SparseArray
 using LinearAlgebra: LinearAlgebra
 
@@ -18,45 +19,59 @@ const TK = TensorKit
 _isone(x; kwargs...) = isapprox(x, one(x); kwargs...)
 
 Random.seed!(1234)
-
-smallset(::Type{I}) where {I <: Sector} = take(values(I), 5)
-function smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1, I2}
-    iter = product(smallset(I1), smallset(I2))
-    s = collect(i ⊠ j for (i, j) in iter if dim(i) * dim(j) <= 6)
-    return length(s) > 6 ? rand(s, 6) : s
-end
-function smallset(::Type{ProductSector{Tuple{I1, I2, I3}}}) where {I1, I2, I3}
-    iter = product(smallset(I1), smallset(I2), smallset(I3))
-    s = collect(i ⊠ j ⊠ k for (i, j, k) in iter if dim(i) * dim(j) * dim(k) <= 6)
-    return length(s) > 6 ? rand(s, 6) : s
-end
-function randsector(::Type{I}) where {I <: Sector}
-    s = collect(smallset(I))
-    a = rand(s)
-    while a == one(a) # don't use trivial label
-        a = rand(s)
-    end
-    return a
-end
-
 Ti = time()
+
+# sector tests
+testsuite_path = joinpath(
+    dirname(dirname(pathof(TensorKitSectors))), # TensorKitSectors root
+    "test", "testsuite.jl"
+)
+include(testsuite_path)
+using .SectorTestSuite: randsector, smallset
+
+# the pentagon test scales steeply with the dimensions, so keep these small enough for CI
+function SectorTestSuite.smallset(::Type{I}) where {I <: SUNIrrep}
+    N = SUNRepresentations.rank(I)
+    size = N == 3 ? 5 : N == 4 ? 4 : 3
+    dim_limit = N == 3 ? 11 : 16
+    return smallset(I, size, dim_limit)
+end
+function SectorTestSuite.smallset(::Type{ProductSector{Tuple{I1, I2}}}) where {I1 <: SUNIrrep, I2 <: SUNIrrep}
+    products = [a ⊠ b for a in smallset(I1) for b in smallset(I2) if dim(a) * dim(b) <= 30]
+    return first(shuffle!(products), 5)
+end
+
+sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
+# the sector tests visit many intermediate irreps, so keep the RAM caches small (in bytes)
+set_cache_size!(SUNRepresentations.SUN_CGC, 2^30; by = MemoizationKit.cachesize)
+set_cache_size!(SUNRepresentations.SUN_Fsymbol, 2^28; by = MemoizationKit.cachesize)
+set_cache_size!(SUNRepresentations.SUN_Rsymbol, 2^26; by = MemoizationKit.cachesize)
+@testset "Sector tests" begin
+    for sector in sectorlist
+        SectorTestSuite.test_sector(sector)
+    end
+    include("sectors.jl")
+end
+
 module GenericTests
     using Test
     using TestExtras
     using Random
     using SUNRepresentations
+    using TensorKitSectors
     include("generic.jl")
 end
 
-include("caching.jl")
+@testset "Caching tests" begin
+    include("caching.jl")
+end
 include("casimir.jl")
 include("clebschgordan.jl")
-sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep, SU3Irrep ⊠ SU3Irrep)
-include("sectors.jl")
 sectorlist = (SU3Irrep, SU4Irrep, SU5Irrep)
 include("fusiontrees.jl")
 
 @testset "Aqua" verbose = true begin
+    using Aqua
     # RationalRoots has ambiguities with Base/Core, so only test SUNRepresentations ambiguities
     # Intentional piracy of Rep[SU{N}] etc
     Aqua.test_all(SUNRepresentations; ambiguities = false, piracies = (; treat_as_own = [SU]))

@@ -12,6 +12,8 @@ disk_hits() = only(p.second.hits for p in MemoizationKit.disk_cache_stats() if p
 @testset "CGC disk cache" begin
     # only remove cache if running on CI
     get(ENV, "CI", "false") == "true" && empty_disk_caches!(SUN_CGC)
+    # CGCs still in RAM from earlier tests would not be written to disk
+    empty_caches!(SUN_CGC)
 
     precompute_disk_cache(3, 1)
     @test only(disk_cache_info(SUN_CGC)).second.entries > 0
